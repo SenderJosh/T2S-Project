@@ -1,0 +1,15 @@
+﻿<Window x:Class="T2SOverlay.Textbox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:T2SOverlay"
+        mc:Ignorable="d"
+        Title="Textbox" Height="24.37" Width="300" ResizeMode="NoResize" WindowStyle="None"
+        Focusable="True"
+        Topmost="True"
+        Loaded="Window_Loaded">
+    <Grid>
+        <TextBox Name="textbox" KeyDown="TextBox_KeyDown" />
+    </Grid>
+</Window>
