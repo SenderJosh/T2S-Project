@@ -5,8 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:T2SOverlay"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="T2S Client" Height="350" Width="525">
     <Grid>
-        <Button Click="Button_Click">Test Button</Button>
+        <DockPanel Background="Black">
+            <Menu DockPanel.Dock="Top" Background="#FF181818">
+                <MenuItem Header="_Connection" Foreground="White">
+                    <MenuItem Name="ConnectMenuItem" Header="_Connect" Click="ConnectMenuItem_Click" Foreground="Black" />
+                    <MenuItem Name="DisconnectMenuItem" Header="_Disconnect" Click="DisconnectMenuItem_Click" Foreground="Black" />
+                    <Separator Foreground="Black" />
+                    <MenuItem Name="CreateServerMenuItem" Header="_Create Server" Click="CreateServerMenuItem_Click"  Foreground="Black" />
+                    <Separator Foreground="Black" />
+                    <MenuItem Name="ExitMenuItem" Header="_Exit" Click="ExitMenuItem_Click" Foreground="Black" />
+                </MenuItem>
+                <MenuItem Header="_Settings" Foreground="White">
+                    <MenuItem Name="ProfileMenuItem" Header="_Profile" Click="ProfileMenuItem_Click" Foreground="Black" />
+                    <MenuItem Name="SettingsMenuItem" Header="_Hotkeys" Click="SettingsMenuItem_Click" Foreground="Black" />
+                </MenuItem>
+            </Menu>
+        </DockPanel>
+        <RichTextBox Name="ChatBox" Background="#FF181818" Margin="0,22,0,31" BorderBrush="#FF444444" Foreground="#FF9E9E9E" />
+        <Label Name="LabelIP" Content="Connected to IP: 192.168.2.1" Foreground="White" Margin="0,288,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="517"/>
     </Grid>
 </Window>

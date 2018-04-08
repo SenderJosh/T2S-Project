@@ -20,21 +20,20 @@ namespace T2SOverlay
     /// </summary>
     public partial class Textbox : Window
     {
-        SpeechSynthesizer speech;
+        private MainWindow instance;
 
-        public Textbox()
+        public Textbox(MainWindow instance)
         {
             InitializeComponent();
-            speech = new SpeechSynthesizer();
-            speech.Volume = 80;
-            speech.Rate = 1;
+
+            this.instance = instance;
         }
         
         private void TextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Return || e.Key == Key.Enter)
             {
-                speech.SpeakAsync(textbox.Text);
+                instance.SendMessage(textbox.Text);
                 this.Close();
             }
             else if (e.Key == Key.Escape)

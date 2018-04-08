@@ -4,6 +4,6 @@
              xmlns:local="clr-namespace:T2SOverlay"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        
     </Application.Resources>
 </Application>
