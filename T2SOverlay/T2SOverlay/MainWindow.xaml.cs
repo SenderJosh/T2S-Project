@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Forms;
 
 namespace T2SOverlay
 {
@@ -20,10 +21,7 @@ namespace T2SOverlay
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Server server;
-
-        private static object lockObj;
-
+        //Server
         private const int BUFFER_SIZE = 2048;
         private IPAddress IP = IPAddress.Loopback;
         private const int PORT = 100;
@@ -32,6 +30,11 @@ namespace T2SOverlay
         private static readonly Socket ClientSocket = new Socket
             (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         private SpeechSynthesizer speech;
+
+        //Settings
+        private Settings settings;
+        public static Keys hotkeyMute, hotkeyDisplay; //Global hotkey
+        private KeyboardHook keyboard = new KeyboardHook();
 
         public MainWindow()
         {
@@ -44,14 +47,28 @@ namespace T2SOverlay
             speech.Volume = 80;
             speech.Rate = 1;
 
-            //Setup lockObj for critical section regarding connection
+            keyboard.KeyPressed += new EventHandler<KeyPressedEventArgs>(Keyboard_KeyPressed);
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            //Unregister hotkeys and save current ones in settings
+            keyboard.UnregisterHotKeys();
+
+            base.OnClosing(e);
         }
 
         #region Toolbar
 
         private void SettingsMenuItem_Click(object sender, RoutedEventArgs e)
         {
-
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                settings = new Settings(keyboard, hotkeyMute, hotkeyDisplay);
+                settings.Show();
+                settings.Activate();
+                settings.Focus();
+            }));
         }
 
         //Open new window to edit profile
@@ -75,7 +92,7 @@ namespace T2SOverlay
             }
             else
             {
-                MessageBox.Show("Could not connect to server", "ERROR");
+                System.Windows.MessageBox.Show("Could not connect to server", "ERROR");
             }
         }
 
@@ -83,7 +100,7 @@ namespace T2SOverlay
         private void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
         {
             //Do disconnect
-            if (MessageBox.Show("Are you sure?", "Confirm", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (System.Windows.MessageBox.Show("Are you sure?", "Confirm", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 Disconnect();
                 DisconnectMenuItem.IsEnabled = false;
@@ -110,7 +127,7 @@ namespace T2SOverlay
                 //Set label to connected IP
                 if (!conn)
                 {
-                    MessageBox.Show("Could not connect to server", "ERROR");
+                    System.Windows.MessageBox.Show("Could not connect to server", "ERROR");
                     Disconnect();
                     DisconnectMenuItem.IsEnabled = false;
                     ConnectMenuItem.IsEnabled = true;
@@ -154,6 +171,7 @@ namespace T2SOverlay
                     {
                         ClientSocket.Connect(IP, PORT);
                         Console.WriteLine("Connected");
+                        MakeRequests();
                         return true;
                     }
                     catch (SocketException)
@@ -167,6 +185,7 @@ namespace T2SOverlay
 
         private void MakeRequests()
         {
+            Console.WriteLine("Now making requests to receive responses");
             Task.Run(() =>
             {
                 //Continuously check for response
@@ -177,15 +196,10 @@ namespace T2SOverlay
             });
         }
 
-        public void SendMessage(string message)
-        {
-            SendString(message);
-        }
-
         /// <summary>
         /// Sends a string to the server with ASCII encoding.
         /// </summary>
-        private void SendString(string text)
+        public void SendMessage(string text)
         {
             //Append name
             //TODO Use real username
@@ -222,22 +236,23 @@ namespace T2SOverlay
 
         ////////////////////////////////////////////////////////////////////////////////
 
-        //TODO
-        //Convert this to keyboard event handler invoking user32.dll
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
-            Thread.Sleep(2000);
-            Dispatcher.BeginInvoke(new Action(() =>
+            Console.WriteLine("Pressed: " + e.Key.ToString());
+
+            if (e.Key.Equals(hotkeyDisplay))
             {
-                Textbox tb = new Textbox(this);
-                tb.Show();
-                tb.Activate();
-                tb.Focus();
-                Console.WriteLine("here");
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    Textbox tb = new Textbox(this);
+                    tb.Show();
+                    tb.Activate();
+                    tb.Focus();
+                    Console.WriteLine("here");
 
-                Console.WriteLine(GetActiveWindowTitle());
-            }));
-
+                    Console.WriteLine(GetActiveWindowTitle());
+                }));
+            }
         }
 
         [DllImport("user32.dll")]

@@ -82,13 +82,14 @@ namespace T2SOverlay
             Array.Copy(buffer, recBuf, received);
             string text = Encoding.ASCII.GetString(recBuf);
             Console.WriteLine("Received Text: " + text);
-            
+            Console.WriteLine("There are " + clientSockets.Count + " clients");
             //Send to all connected sockets except self
             foreach (Socket s in clientSockets)
             {
                 if(s != current)
                     s.Send(Encoding.ASCII.GetBytes(text));
             }
+            current.Send(Encoding.ASCII.GetBytes("testSend"));
 
             current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
         }
