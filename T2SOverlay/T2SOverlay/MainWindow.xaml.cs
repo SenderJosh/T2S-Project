@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -21,6 +23,9 @@ namespace T2SOverlay
     /// </summary>
     public partial class MainWindow : Window
     {
+        //Client
+        public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
+
         //Server
         private const int BUFFER_SIZE = 2048;
         private IPAddress IP = IPAddress.Loopback;
@@ -48,6 +53,30 @@ namespace T2SOverlay
             speech.Rate = 1;
 
             keyboard.KeyPressed += new EventHandler<KeyPressedEventArgs>(Keyboard_KeyPressed);
+
+            string json = "";
+            //Load hotkeyMute and hotkeyDisplay, then register them
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json"))
+            {
+                json = File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json");
+                Keys[] keys = JsonConvert.DeserializeObject<Keys[]>(json);
+                hotkeyMute = keys[0];
+                hotkeyDisplay = keys[1];
+            }
+            else
+            {
+                //Create and load default
+                hotkeyMute = Keys.M;
+                hotkeyDisplay = Keys.U;
+                Keys[] keys = { Keys.M, Keys.U };
+                json = JsonConvert.SerializeObject(keys);
+                Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
+                File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json", json);
+            }
+
+            //Register hotkeys
+            keyboard.RegisterHotKey(hotkeyDisplay);
+            keyboard.RegisterHotKey(hotkeyMute);
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -243,22 +272,23 @@ namespace T2SOverlay
 
         ////////////////////////////////////////////////////////////////////////////////
 
+        private Textbox tb;
         private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
-            Console.WriteLine("Pressed: " + e.Key.ToString());
-
-            if (e.Key.Equals(hotkeyDisplay))
+            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened)
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    Textbox tb = new Textbox(this);
+                    tb = new Textbox(this);
                     tb.Show();
                     tb.Activate();
                     tb.Focus();
-                    Console.WriteLine("here");
-
-                    Console.WriteLine(GetActiveWindowTitle());
+                    textboxOpened = true;
                 }));
+            }
+            if(e.Key.Equals(hotkeyDisplay) && textboxOpened && tb != null)
+            {
+                tb.addHotkeyPressedButton(e.Key.ToString().ToLower());
             }
         }
 

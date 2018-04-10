@@ -65,7 +65,7 @@ namespace T2SOverlay
 
         private Window _window = new Window();
         private int _currentId;
-
+        
         public KeyboardHook()
         {
             // register the event of the inner native window.

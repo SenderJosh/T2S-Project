@@ -34,12 +34,19 @@ namespace T2SOverlay
             if (e.Key == Key.Return || e.Key == Key.Enter)
             {
                 instance.SendMessage(textbox.Text);
+                instance.textboxOpened = false;
                 this.Close();
             }
             else if (e.Key == Key.Escape)
             {
+                instance.textboxOpened = false;
                 this.Close();
             }
+        }
+
+        public void addHotkeyPressedButton(string key)
+        {
+            textbox.Text += key;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)

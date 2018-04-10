@@ -5,17 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:T2SOverlay"
         mc:Ignorable="d"
-        Title="T2S Settings" Height="450" Width="800" Background="#FF181818" KeyDown="Window_KeyDown">
+        Title="T2S Settings" Height="201.681" Width="435.714" Background="#FF181818" KeyDown="Window_KeyDown" WindowStyle="ToolWindow">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="17*"/>
-            <ColumnDefinition Width="27*"/>
-        </Grid.ColumnDefinitions>
         <StackPanel Orientation="Vertical" Grid.ColumnSpan="2">
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Height="110" Margin="224,0">
-                <Border MinWidth="20">
-
-                </Border>
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Height="110">
                 <StackPanel Orientation="Horizontal" Height="57" HorizontalAlignment="Center">
                     <Button Name="HotkeyDisplayChat" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20" Margin="0,5,0,17" Width="148" Click="HotkeyDisplayChat_Click" Content="Unbinded"/>
                     <Label Content="Display T2S Chat Box" FontSize="20" Width="196" Margin="0,5,0,17" Foreground="#FFB9B9B9" />
@@ -26,6 +19,6 @@
                 </StackPanel>
             </StackPanel>
         </StackPanel>
-        <Button x:Name="HotKeyApply" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20"  Margin="15.916,0,322,17" Click="HotKeyApply_Click"  Content="Apply" VerticalAlignment="Bottom" Grid.Column="1"  />
+        <Button x:Name="HotKeyApply" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20"  Margin="168,0,169,10" Click="HotKeyApply_Click"  Content="Apply" VerticalAlignment="Bottom"  />
     </Grid>
 </Window>

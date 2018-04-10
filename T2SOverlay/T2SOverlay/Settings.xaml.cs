@@ -32,6 +32,10 @@ namespace T2SOverlay
             this.keyboard = keyboard;
             this.hotkeyMute = hotkeyMute;
             this.hotkeyDisplay = hotkeyDisplay;
+
+            //Display current settings
+            HotkeyDisplayChat.Content = this.hotkeyDisplay.ToString();
+            HotkeyMuteT2S.Content = this.hotkeyMute.ToString();
         }
 
         private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -94,7 +98,6 @@ namespace T2SOverlay
                 //Update global static hotkey
                 MainWindow.hotkeyDisplay = hotkeyDisplay;
                 MainWindow.hotkeyMute = hotkeyMute;
-                Console.WriteLine("here");
             }
         }
     }
