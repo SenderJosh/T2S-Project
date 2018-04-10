@@ -205,13 +205,14 @@ namespace T2SOverlay
             //TODO Use real username
             text = "username: " + text;
             byte[] buffer = Encoding.ASCII.GetBytes(text);
-            ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
             //Append own text
             ChatBox.AppendText("Me: " + text + "\n");
+            ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
         }
 
         /// <summary>
         /// Receives byte array from server, converts to ASCII encoding to display
+        /// Note that this is occurring on a separate thread
         /// </summary>
         private void ReceiveResponse()
         {
@@ -223,8 +224,14 @@ namespace T2SOverlay
             string text = Encoding.ASCII.GetString(data);
 
             //Append to visual and do TTS
-            ChatBox.AppendText(text + "\n");
             speech.SpeakAsync(text);
+            ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendRTBSeparateThread), new object[] { text });
+        }
+
+        public delegate void AppendRTBSeparateThreadCallback(string message);
+        public void AppendRTBSeparateThread(string text)
+        {
+            ChatBox.AppendText(text + "\n");
         }
 
         #endregion

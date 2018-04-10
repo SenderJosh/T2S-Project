@@ -89,7 +89,6 @@ namespace T2SOverlay
                 if(s != current)
                     s.Send(Encoding.ASCII.GetBytes(text));
             }
-            current.Send(Encoding.ASCII.GetBytes("testSend"));
 
             current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
         }
