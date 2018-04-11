@@ -12,7 +12,7 @@ namespace T2SOverlay
     {
 
         private static readonly Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        private static readonly List<Socket> clientSockets = new List<Socket>();
+        private static readonly List<Pair> clientSocketPairs = new List<Pair>();
         private const int BUFFER_SIZE = 2048;
         private const int PORT = 100;
         private static readonly byte[] buffer = new byte[BUFFER_SIZE];
@@ -32,10 +32,10 @@ namespace T2SOverlay
         /// </summary>
         public static void CloseAllSockets()
         {
-            foreach (Socket socket in clientSockets)
+            foreach (Pair pair in clientSocketPairs)
             {
-                socket.Shutdown(SocketShutdown.Both);
-                socket.Close();
+                pair.Socket.Shutdown(SocketShutdown.Both);
+                pair.Socket.Close();
             }
 
             serverSocket.Close();
@@ -54,7 +54,9 @@ namespace T2SOverlay
                 return;
             }
 
-            clientSockets.Add(socket);
+            Client client = new Client(null, null);
+            client.Hash_Code = client.GetHashCode();
+            clientSocketPairs.Add(new Pair(socket, client)); //temp store null client until first ReceiveCallBack is given
             socket.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, socket);
             Console.WriteLine("Client connected, waiting for request...");
             serverSocket.BeginAccept(AcceptCallback, null);
@@ -64,6 +66,23 @@ namespace T2SOverlay
         {
             Socket current = (Socket)AR.AsyncState;
             int received;
+            Pair pair = null;
+
+            //Find socket associated pair
+            foreach(Pair p in clientSocketPairs)
+            {
+                if (p.Socket.Equals(current))
+                {
+                    pair = p;
+                    break;
+                }
+            }
+
+            if(pair == null)
+            {
+                pair = new Pair(current, null);
+                clientSocketPairs.Add(pair);
+            }
 
             try
             {
@@ -74,7 +93,7 @@ namespace T2SOverlay
                 Console.WriteLine("Client forcefully disconnected");
                 // Don't shutdown because the socket may be disposed and its disconnected anyway.
                 current.Close();
-                clientSockets.Remove(current);
+                clientSocketPairs.Remove(pair);
                 return;
             }
 
@@ -82,15 +101,30 @@ namespace T2SOverlay
             Array.Copy(buffer, recBuf, received);
             string text = Encoding.ASCII.GetString(recBuf);
             Console.WriteLine("Received Text: " + text);
-            Console.WriteLine("There are " + clientSockets.Count + " clients");
+            Console.WriteLine("There are " + clientSocketPairs.Count + " clients");
             //Send to all connected sockets except self
-            foreach (Socket s in clientSockets)
+            foreach (Pair p in clientSocketPairs)
             {
-                if(s != current)
-                    s.Send(Encoding.ASCII.GetBytes(text));
+                if(p.Socket != current)
+                    p.Socket.Send(Encoding.ASCII.GetBytes(text));
             }
 
             current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
+        }
+
+        /// <summary>
+        /// We will now host a list of Pairs rather than a list of Sockets, for the purpose of keeping serializable user-client data for a multi-client chat server
+        /// </summary>
+        class Pair
+        {
+            public Socket Socket;
+            public Client Client;
+
+            public Pair(Socket sock, Client client)
+            {
+                this.Socket = sock;
+                this.Client = client;
+            }
         }
     }
 }

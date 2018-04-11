@@ -26,10 +26,8 @@ namespace T2SOverlay
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
 
         //Server
-        private const int BUFFER_SIZE = 2048;
         private IPAddress IP = IPAddress.Loopback;
         private const int PORT = 100;
-        private static readonly byte[] buffer = new byte[BUFFER_SIZE];
 
         private static readonly Socket ClientSocket = new Socket
             (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
