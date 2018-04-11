@@ -23,19 +23,21 @@ namespace T2SOverlay
         private KeyboardHook keyboard;
         private bool listen = false, changed = false;
 
-        private Keys hotkeyMute, hotkeyDisplay;
-        private Keys hotkeyMuteOld, hotkeyDisplayOld;
+        private Keys hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys;
+        private Keys hotkeyMuteOld, hotkeyDisplayOld, hotkeyDisableHotkeysOld;
 
-        public Settings(KeyboardHook keyboard, Keys hotkeyMute, Keys hotkeyDisplay)
+        public Settings(KeyboardHook keyboard, Keys hotkeyMute, Keys hotkeyDisplay, Keys hotkeyDisableHotkeys)
         {
             InitializeComponent();
             this.keyboard = keyboard;
             this.hotkeyMute = hotkeyMute;
             this.hotkeyDisplay = hotkeyDisplay;
+            this.hotkeyDisableHotkeys = hotkeyDisableHotkeys;
 
             //Display current settings
             HotkeyDisplayChat.Content = this.hotkeyDisplay.ToString();
             HotkeyMuteT2S.Content = this.hotkeyMute.ToString();
+            HotkeyDisableHotkey.Content = this.hotkeyDisableHotkeys.ToString();
         }
 
         private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -53,11 +55,17 @@ namespace T2SOverlay
                         hotkeyDisplay = key;
                         HotkeyDisplayChat.Content = key.ToString();
                     }
-                    else
+                    else if (HotkeyMuteT2S.Content.ToString() == "Press [ESC] to Cancel")
                     {
                         hotkeyMuteOld = hotkeyMute;
                         hotkeyMute = key;
                         HotkeyMuteT2S.Content = key.ToString();
+                    }
+                    else
+                    {
+                        hotkeyDisableHotkeysOld = hotkeyDisableHotkeys;
+                        hotkeyDisableHotkeys = key;
+                        HotkeyDisableHotkey.Content = key.ToString();
                     }
                 }
                 else
@@ -66,12 +74,22 @@ namespace T2SOverlay
                     {
                         HotkeyDisplayChat.Content = hotkeyDisplay.ToString();
                     }
-                    else
+                    else if(HotkeyMuteT2S.Content.ToString() == "Press [ESC] to Cancel")
                     {
                         HotkeyMuteT2S.Content = hotkeyMute.ToString();
                     }
+                    else
+                    {
+                        HotkeyDisableHotkey.Content = hotkeyDisableHotkeys.ToString();
+                    }
                 }
             }
+        }
+
+        private void HotkeyDisableHotkey_Click(object sender, RoutedEventArgs e)
+        {
+            listen = true;
+            HotkeyDisableHotkey.Content = "Press [ESC] to Cancel";
         }
 
         private void HotkeyMuteT2S_Click(object sender, RoutedEventArgs e)
@@ -95,9 +113,11 @@ namespace T2SOverlay
                 keyboard.UnregisterHotKeys(); //Unregister all hotkeys
                 keyboard.RegisterHotKey(hotkeyDisplay);
                 keyboard.RegisterHotKey(hotkeyMute);
+                keyboard.RegisterHotKey(hotkeyDisableHotkeys);
                 //Update global static hotkey
                 MainWindow.hotkeyDisplay = hotkeyDisplay;
                 MainWindow.hotkeyMute = hotkeyMute;
+                MainWindow.hotkeyDisableHotkeys = hotkeyDisableHotkeys;
             }
         }
     }

@@ -6,7 +6,6 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Speech.Synthesis;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
@@ -38,7 +37,7 @@ namespace T2SOverlay
 
         //Settings
         private Settings settings;
-        public static Keys hotkeyMute, hotkeyDisplay; //Global hotkey
+        public static Keys hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys; //Global hotkey
         private KeyboardHook keyboard = new KeyboardHook();
 
         public MainWindow()
@@ -62,21 +61,31 @@ namespace T2SOverlay
                 Keys[] keys = JsonConvert.DeserializeObject<Keys[]>(json);
                 hotkeyMute = keys[0];
                 hotkeyDisplay = keys[1];
+                hotkeyDisableHotkeys = keys[2];
             }
             else
             {
                 //Create and load default
                 hotkeyMute = Keys.M;
                 hotkeyDisplay = Keys.U;
-                Keys[] keys = { Keys.M, Keys.U };
+                hotkeyDisableHotkeys = Keys.End;
+                Keys[] keys = { Keys.M, Keys.U, Keys.End };
                 json = JsonConvert.SerializeObject(keys);
                 Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
                 File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json", json);
             }
 
             //Register hotkeys
-            keyboard.RegisterHotKey(hotkeyDisplay);
-            keyboard.RegisterHotKey(hotkeyMute);
+            try
+            {
+                keyboard.RegisterHotKey(hotkeyDisplay);
+                keyboard.RegisterHotKey(hotkeyMute);
+                keyboard.RegisterHotKey(hotkeyDisableHotkeys);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -93,7 +102,7 @@ namespace T2SOverlay
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                settings = new Settings(keyboard, hotkeyMute, hotkeyDisplay);
+                settings = new Settings(keyboard, hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys);
                 settings.Show();
                 settings.Activate();
                 settings.Focus();
@@ -230,12 +239,13 @@ namespace T2SOverlay
         /// </summary>
         public void SendMessage(string text)
         {
+            string orig = text;
             //Append name
             //TODO Use real username
             text = "username: " + text;
             byte[] buffer = Encoding.ASCII.GetBytes(text);
             //Append own text
-            ChatBox.AppendText("Me: " + text + "\n");
+            ChatBox.AppendText("Me: " + orig + "\n");
             ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
         }
 
@@ -273,9 +283,10 @@ namespace T2SOverlay
         ////////////////////////////////////////////////////////////////////////////////
 
         private Textbox tb;
+        private bool disabledHotKeys = false;
         private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
-            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened)
+            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -289,6 +300,19 @@ namespace T2SOverlay
             if(e.Key.Equals(hotkeyDisplay) && textboxOpened && tb != null)
             {
                 tb.addHotkeyPressedButton(e.Key.ToString().ToLower());
+            }
+            //Unregister all hotkeys EXCEPT the hotkeyDisable one
+            if(e.Key.Equals(hotkeyDisableHotkeys) && !disabledHotKeys)
+            {
+                disabledHotKeys = true;
+                keyboard.UnregisterHotKeys();
+                keyboard.RegisterHotKey(hotkeyDisableHotkeys);
+            }
+            else if (e.Key.Equals(hotkeyDisableHotkeys) && disabledHotKeys)
+            {
+                disabledHotKeys = false;
+                keyboard.RegisterHotKey(hotkeyDisplay);
+                keyboard.RegisterHotKey(hotkeyMute);
             }
         }
 

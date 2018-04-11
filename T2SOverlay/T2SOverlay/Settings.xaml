@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:T2SOverlay"
         mc:Ignorable="d"
-        Title="T2S Settings" Height="201.681" Width="435.714" Background="#FF181818" KeyDown="Window_KeyDown" WindowStyle="ToolWindow">
+        Title="T2S Settings" Height="254.877" Width="435.714" Background="#FF181818" KeyDown="Window_KeyDown" WindowStyle="ToolWindow">
     <Grid>
         <StackPanel Orientation="Vertical" Grid.ColumnSpan="2">
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Height="110">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Height="160">
                 <StackPanel Orientation="Horizontal" Height="57" HorizontalAlignment="Center">
                     <Button Name="HotkeyDisplayChat" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20" Margin="0,5,0,17" Width="148" Click="HotkeyDisplayChat_Click" Content="Unbinded"/>
                     <Label Content="Display T2S Chat Box" FontSize="20" Width="196" Margin="0,5,0,17" Foreground="#FFB9B9B9" />
@@ -16,6 +16,10 @@
                 <StackPanel Orientation="Horizontal" Height="57" HorizontalAlignment="Center">
                     <Button x:Name="HotkeyMuteT2S" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20"  Margin="0,5,0,17" Width="148" Click="HotkeyMuteT2S_Click" Content="Unbinded"/>
                     <Label Content="Mute T2S" FontSize="20" Width="196" Margin="0,5,0,17" Foreground="#FFB9B9B9" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="57" HorizontalAlignment="Center">
+                    <Button x:Name="HotkeyDisableHotkey" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20"  Margin="0,5,0,17" Width="148" Click="HotkeyDisableHotkey_Click"  Content="Unbinded"/>
+                    <Label Content="Disable Hotkeys" FontSize="20" Width="196" Margin="0,5,0,17" Foreground="#FFB9B9B9" />
                 </StackPanel>
             </StackPanel>
         </StackPanel>
