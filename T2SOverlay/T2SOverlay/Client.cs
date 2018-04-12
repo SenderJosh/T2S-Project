@@ -16,7 +16,7 @@ namespace T2SOverlay
     public class Client
     {
         public int Hash_Code; //Assigned by the server (id, in case two usernames are the same)
-
+        
         public Bitmap ProfilePicture;
         public string Username;
 
