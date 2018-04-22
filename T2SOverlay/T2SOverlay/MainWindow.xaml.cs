@@ -26,12 +26,16 @@ namespace T2SOverlay
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
 
         //Server
+        private const int BUFFER_SIZE = 2048;
         private IPAddress IP = IPAddress.Loopback;
         private const int PORT = 100;
+        private static readonly byte[] buffer = new byte[BUFFER_SIZE];
 
         private static readonly Socket ClientSocket = new Socket
             (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         private SpeechSynthesizer speech;
+
+        private TcpClient client;
 
         //Settings
         private Settings settings;
@@ -50,11 +54,12 @@ namespace T2SOverlay
             speech.Rate = 1;
 
             keyboard.KeyPressed += new EventHandler<KeyPressedEventArgs>(Keyboard_KeyPressed);
-
+            
             string json = "";
             //Load hotkeyMute and hotkeyDisplay, then register them
             if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json"))
             {
+                Console.WriteLine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json");
                 json = File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json");
                 Keys[] keys = JsonConvert.DeserializeObject<Keys[]>(json);
                 hotkeyMute = keys[0];
@@ -224,7 +229,7 @@ namespace T2SOverlay
             Console.WriteLine("Now making requests to receive responses");
             Task.Run(() =>
             {
-                //Continuously check for response
+                //Continuously check for response in a syncrhonous fashion in another thread
                 while (true)
                 {
                     ReceiveResponse();
@@ -250,18 +255,47 @@ namespace T2SOverlay
         /// <summary>
         /// Receives byte array from server, converts to ASCII encoding to display
         /// Note that this is occurring on a separate thread
+        /// 
+        /// HEADER AND BODY
+        /// Header is defined as the zeroth index of a BAR | string split
+        /// The header may also never be larger than 32 bytes (if it is, then this implies the message is SUPER long and we should probably just ignore it.
+        ///     The server should also recognize this failure and send an error message to the sending client that the message sent is too large (like, honestly, 32 bytes is a 32 digit integer. 
+        ///     Who even would send something that big? 
+        ///     RIP that person's bandwidth lol))
+        /// The header will represent the TOTAL LENGTH EXCLUSIVE of the header, thereby representing the buffer length of the NEXT receive, which should by protocol be a json file.
+        /// The header will also always be length 32, append pipe separator to be 33
+        /// 
+        /// The first index will be a json 
+        /// We follow forward with the assumption that we are working with ASCII text. Perhaps later for augmentation we switch to Encoding.Unicode and double/quadruple the header size
+        /// due to the nature of unicode characters being larger
+        /// 
         /// </summary>
         private void ReceiveResponse()
         {
-            var buffer = new byte[2048];
-            int received = ClientSocket.Receive(buffer, SocketFlags.None);
-            if (received == 0) return;
-            var data = new byte[received];
-            Array.Copy(buffer, data, received);
-            string text = Encoding.ASCII.GetString(data);
+            var buffer = new byte[33];
+            int received = ClientSocket.Receive(buffer, 33, SocketFlags.None);
+            if (received == 0) return; //Nothing to receive
+            string text = Encoding.ASCII.GetString(buffer); //Hopefully the header
+            int header;
+            //Successfully got header
+            if (Int32.TryParse(text.Split('|')[0], out header))
+            {
+                buffer = new byte[header];
+                received = ClientSocket.Receive(buffer, header, SocketFlags.None);
+                if (received == 0)
+                {
+                    Console.WriteLine("--------------ERROR--------------");
+                    Console.WriteLine("Receive Response failed");
+                    Console.WriteLine("Expected to receive bytes: " + header);
+                    return; //Nothing to receive (which would be REALLY weird because it's expecting to receive something so print stuff)
+                }
+                string json = JsonConvert.DeserializeObject<T2SClientMessage>(Encoding.ASCII.GetString(buffer));
+
+            }
 
             //Append to visual and do TTS
             speech.SpeakAsync(text);
+            Console.WriteLine(BUFFER_SIZE);
             ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendRTBSeparateThread), new object[] { text });
         }
 
