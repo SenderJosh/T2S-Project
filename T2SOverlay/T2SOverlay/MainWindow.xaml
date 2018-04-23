@@ -23,7 +23,41 @@
                 </MenuItem>
             </Menu>
         </DockPanel>
-        <RichTextBox Name="ChatBox" Background="#FF181818" Margin="0,22,0,31" BorderBrush="#FF444444" Foreground="#FF9E9E9E" />
+        <StackPanel Orientation="Horizontal">
+            <ListView Background="#FF181818" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="160" Margin="0,22,0,31">
+                <ListViewItem>
+                    <Label Content="Connected Users" FontSize="9" Foreground="White" />
+                </ListViewItem>
+                <!--Template for displaying connected users' information (profile picture, username)-->
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <WrapPanel>
+                            <Ellipse MaxHeight="50" MaxWidth="50">
+                                <Ellipse.Fill>
+                                    <ImageBrush ImageSource="{Binding ProfilePicture}" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Label Content="{Binding Username}" />
+                        </WrapPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <ListView Name="ChatBox" Background="#FF181818" Margin="0,22,0,31" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="348">
+                <!--Template for messages-->
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <WrapPanel>
+                            <Ellipse MaxHeight="50" MaxWidth="50">
+                                <Ellipse.Fill>
+                                    <ImageBrush ImageSource="{Binding ProfilePicture}" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Label Content="{Binding Message}" />
+                        </WrapPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
         <Label Name="LabelIP" Content="Connected to IP: 192.168.2.1" Foreground="White" Margin="0,288,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="517"/>
     </Grid>
 </Window>

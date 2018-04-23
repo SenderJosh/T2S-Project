@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -26,16 +27,14 @@ namespace T2SOverlay
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
 
         //Server
-        private const int BUFFER_SIZE = 2048;
         private IPAddress IP = IPAddress.Loopback;
         private const int PORT = 100;
-        private static readonly byte[] buffer = new byte[BUFFER_SIZE];
 
         private static readonly Socket ClientSocket = new Socket
             (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         private SpeechSynthesizer speech;
 
-        private TcpClient client;
+        private List<T2SUser> ConnectedUsers;
 
         //Settings
         private Settings settings;
@@ -47,6 +46,8 @@ namespace T2SOverlay
             InitializeComponent();
             DisconnectMenuItem.IsEnabled = false;
             LabelIP.Content = "Disconnected";
+
+            ConnectedUsers = new List<T2SUser>();
 
             //Setup text to speech synth
             speech = new SpeechSynthesizer();
@@ -289,13 +290,25 @@ namespace T2SOverlay
                     Console.WriteLine("Expected to receive bytes: " + header);
                     return; //Nothing to receive (which would be REALLY weird because it's expecting to receive something so print stuff)
                 }
-                string json = JsonConvert.DeserializeObject<T2SClientMessage>(Encoding.ASCII.GetString(buffer));
-
+                T2SClientMessage message = JsonConvert.DeserializeObject<T2SClientMessage>(Encoding.ASCII.GetString(buffer));
+                
+                //Perform logic
+                if(message.UpdateProfile)
+                {
+                    //Modify user if macaddr exists. If not, add
+                    foreach(T2SUser user in ConnectedUsers)
+                    {
+                        if(user.MacAddr == message.MacAddr)
+                        {
+                            //exists
+                            if(message)
+                        }
+                    }
+                }
             }
 
             //Append to visual and do TTS
             speech.SpeakAsync(text);
-            Console.WriteLine(BUFFER_SIZE);
             ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendRTBSeparateThread), new object[] { text });
         }
 
