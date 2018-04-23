@@ -66,6 +66,7 @@
       <DependentUpon>Settings.xaml</DependentUpon>
     </Compile>
     <Compile Include="T2SClientMessage.cs" />
+    <Compile Include="T2SUser.cs" />
     <Compile Include="Textbox.xaml.cs">
       <DependentUpon>Textbox.xaml</DependentUpon>
     </Compile>
@@ -116,6 +117,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\blank_profile.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\blank_profile.jpg" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

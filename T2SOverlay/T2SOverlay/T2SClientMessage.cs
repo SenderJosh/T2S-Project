@@ -17,13 +17,14 @@ namespace T2SOverlay
     /// For the sake of tests, we will also use username to pair with MacAddr
     /// The server will automatically pair the MacAddr to the socket for the purpose of tracking disconnects
     /// </summary>
-    class T2SClientMessage
+    public class T2SClientMessage
     {
+        public bool Connected { get; set; } = true; //To be modified by the server. If this is ever false, remove
         public string MacAddr { get; set; } = null;
         public string Username { get; set; } = null;
         public bool FirstConnect { get; set; } = false; //If first connect, server logic should send JSON information of EVERYONE and keep track of their current ProfilePicture
         public bool UpdateProfile { get; set; } = false;
-        public Image ProfilePicture { get; set; } = null;
+        public byte[] ProfilePicture { get; set; } = null; //string so it can be converted by json
         public string Message { get; set; } = null;
     }
 }

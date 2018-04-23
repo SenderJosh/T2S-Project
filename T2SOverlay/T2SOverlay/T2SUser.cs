@@ -14,6 +14,6 @@ namespace T2SOverlay
     {
         public string MacAddr { get; set; } = null;
         public string Username { get; set; } = null;
-        public Image ProfilePicture { get; set; } = null;
+        public byte[] ProfilePicture { get; set; } = null; //string so it can be converted by json
     }
 }

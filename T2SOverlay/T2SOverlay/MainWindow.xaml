@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:T2SOverlay"
         mc:Ignorable="d"
-        Title="T2S Client" Height="350" Width="525" >
+        Title="T2S Client" Height="350" Width="525" ResizeMode="CanMinimize" >
     <Grid>
         <DockPanel Background="Black">
             <Menu DockPanel.Dock="Top" Background="#FF181818">
@@ -24,35 +24,32 @@
             </Menu>
         </DockPanel>
         <StackPanel Orientation="Horizontal">
-            <ListView Background="#FF181818" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="160" Margin="0,22,0,31">
-                <ListViewItem>
-                    <Label Content="Connected Users" FontSize="9" Foreground="White" />
-                </ListViewItem>
+            <ListView Name="ListView_ConnectedUsers" Background="#FF181818" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="160" Margin="0,34,0,31">
                 <!--Template for displaying connected users' information (profile picture, username)-->
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <WrapPanel>
-                            <Ellipse MaxHeight="50" MaxWidth="50">
+                            <Ellipse Height="50" Width="50">
                                 <Ellipse.Fill>
                                     <ImageBrush ImageSource="{Binding ProfilePicture}" />
                                 </Ellipse.Fill>
                             </Ellipse>
-                            <Label Content="{Binding Username}" />
+                            <TextBlock Foreground="White" TextWrapping="WrapWithOverflow" Text="{Binding Username}" Padding="5" Width="95" />
                         </WrapPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-            <ListView Name="ChatBox" Background="#FF181818" Margin="0,22,0,31" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="348">
+            <ListView Name="ChatBox" Background="#FF181818" Margin="0,34,0,31" BorderBrush="#FF444444" Foreground="#FF9E9E9E" Width="348">
                 <!--Template for messages-->
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <WrapPanel>
-                            <Ellipse MaxHeight="50" MaxWidth="50">
+                            <Ellipse Height="50" Width="50">
                                 <Ellipse.Fill>
                                     <ImageBrush ImageSource="{Binding ProfilePicture}" />
                                 </Ellipse.Fill>
                             </Ellipse>
-                            <Label Content="{Binding Message}" />
+                            <TextBlock Foreground="White" TextWrapping="WrapWithOverflow" Text="{Binding Message}" Padding="5" Width="280" />
                         </WrapPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>

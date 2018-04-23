@@ -33,7 +33,7 @@ namespace T2SOverlay
         {
             if (e.Key == Key.Return || e.Key == Key.Enter)
             {
-                instance.SendMessage(textbox.Text);
+                instance.SendMessage(textbox.Text, false, false); //We will never update profile or do a first connect when a user sends a message
                 instance.textboxOpened = false;
                 this.Close();
             }
