@@ -17,6 +17,8 @@ namespace T2SOverlay
     /// For the sake of tests, we will also use username to pair with MacAddr
     /// The server will automatically pair the MacAddr to the socket for the purpose of tracking disconnects
     /// </summary>
+    
+    [Serializable]
     public class T2SClientMessage
     {
         public bool Connected { get; set; } = true; //To be modified by the server. If this is ever false, remove

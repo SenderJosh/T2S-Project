@@ -9,8 +9,10 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Speech.Synthesis;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
@@ -66,12 +68,13 @@ namespace T2SOverlay
             keyboard.KeyPressed += new EventHandler<KeyPressedEventArgs>(Keyboard_KeyPressed);
 
             //Load user information
-            MacAddr = (from nic in NetworkInterface.GetAllNetworkInterfaces() where nic.OperationalStatus == OperationalStatus.Up
-                            select nic.GetPhysicalAddress().ToString()).FirstOrDefault();
+            MacAddr = (from nic in NetworkInterface.GetAllNetworkInterfaces()
+                       where nic.OperationalStatus == OperationalStatus.Up
+                       select nic.GetPhysicalAddress().ToString()).FirstOrDefault();
 
             string json = "";
             //Load profile data
-            if(File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json"))
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json"))
             {
                 json = File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json");
                 T2SUser user = JsonConvert.DeserializeObject<T2SUser>(json);
@@ -228,7 +231,7 @@ namespace T2SOverlay
         private void Disconnect()
         {
             //If the server was created, make sure to shut it down and disconnect other sockets
-            if(!CreateServerMenuItem.IsEnabled)
+            if (!CreateServerMenuItem.IsEnabled)
             {
                 Server.CloseAllSockets();
             }
@@ -289,7 +292,7 @@ namespace T2SOverlay
                 FirstConnect = firstConnect, //change to be a bool
                 Message = text
             };
-            byte[] buffer = Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(message));
+            byte[] buffer = ObjectToByteArray(message), temp = ObjectToByteArray(message);
 
             string header = buffer.Length.ToString();
             //If the header length is larger than the maximum length, we're gonna assume that the dude is trying to destroy someone with a fat receive. 
@@ -302,10 +305,13 @@ namespace T2SOverlay
                 {
                     header += " "; //Append empty spaces until header is max length (32)
                 }
-                Console.WriteLine(header.Length + " : Header length");
-                buffer = Encoding.ASCII.GetBytes((header + "|" + Encoding.ASCII.GetString(buffer)));
+                byte[] headerBytes = Encoding.ASCII.GetBytes(header + "|");
+
+                buffer = new byte[temp.Length + headerBytes.Length];
+
+                Array.Copy(headerBytes, buffer, headerBytes.Length);
+                Array.Copy(temp, 0, buffer, 33, temp.Length);
                 //Append own text
-                Console.WriteLine("First: " + Encoding.ASCII.GetString(buffer));
                 ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendChatBoxListViewSeparateThread), new object[] { message });
                 ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
             }
@@ -335,21 +341,30 @@ namespace T2SOverlay
             int received = ClientSocket.Receive(buffer, 33, SocketFlags.None);
             if (received == 0) return; //Nothing to receive
             string text = Encoding.ASCII.GetString(buffer); //Hopefully the header
+            Console.WriteLine(text);
             int header;
             //Successfully got header
             if (Int32.TryParse(text.Split('|')[0], out header))
             {
                 buffer = new byte[header];
                 received = ClientSocket.Receive(buffer, header, SocketFlags.None);
-                if (received == 0)
+                while(received < header)
                 {
-                    Console.WriteLine("--------------ERROR--------------");
-                    Console.WriteLine("Receive Response failed");
-                    Console.WriteLine("Expected to receive bytes: " + header);
-                    return; //Nothing to receive (which would be REALLY weird because it's expecting to receive something so print stuff)
+                    byte[] tempBuffer = new byte[header - received];
+                    int appendableBytes = ClientSocket.Receive(tempBuffer, header - received, SocketFlags.None);
+                    Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
+                    received += appendableBytes;
                 }
-                T2SClientMessage message = JsonConvert.DeserializeObject<T2SClientMessage>(Encoding.ASCII.GetString(buffer));
-                Console.WriteLine("got header");
+
+                Console.WriteLine("got header which is: " + header);
+                Test.client = buffer;
+                for (int i = 0; i < Test.client.Length; i++)
+                {
+                    if (Test.client[i] != Test.server[i])
+                        Console.WriteLine("Different at index: " + i + " | Server: " + Test.server[i] + " || Client: " + Test.client[i]);
+                }
+
+                T2SClientMessage message = (T2SClientMessage)ByteArrayToObject(buffer);
                 //Perform logic
                 //If this is the first connection, we're not going to display anything new in the chat
                 if (message.FirstConnect)
@@ -360,11 +375,7 @@ namespace T2SOverlay
                         Username = message.Username,
                         ProfilePicture = message.ProfilePicture
                     });
-                    ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass()
-                    {
-                        Username = message.Username,
-                        ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
-                    });
+                    ListView_ConnectedUsers.Dispatcher.Invoke(new AppendListViewConnectedUsersSeparateThreadCallback(this.AppendListViewConnecteduseresSeparateThread), new object[] { message });
                 }
                 else
                 {
@@ -403,7 +414,7 @@ namespace T2SOverlay
         public delegate void AppendRTBSeparateThreadCallback(T2SClientMessage message);
         public void AppendChatBoxListViewSeparateThread(T2SClientMessage message)
         {
-            if(!string.IsNullOrEmpty(message.Message))
+            if (!string.IsNullOrEmpty(message.Message))
             {
                 ChatBox.Items.Add(new MessageTemplate
                 {
@@ -423,16 +434,25 @@ namespace T2SOverlay
             });
         }
 
-        /// <summary>
-        /// Converts a bitmap image to a string to be saved for json
-        /// </summary>
-        /// <param name="bitmapPicture"></param>
-        /// <returns>Base64 string of a bitmap that can be converted</returns>
-        private string GetString64FromBitmap(Bitmap bitmapPicture)
+        // Convert an object to a byte array
+        public static byte[] ObjectToByteArray(Object obj)
         {
-            MemoryStream stream = new MemoryStream();
-            bitmapPicture.Save(stream, ImageFormat.Bmp);
-            return Convert.ToBase64String(stream.ToArray());
+            using (var stream = new MemoryStream())
+            {
+                var formatter = new BinaryFormatter();
+                formatter.Serialize(stream, obj);
+                return stream.ToArray();
+            }
+        }
+
+        // Convert a byte array to an Object
+        public static T2SClientMessage ByteArrayToObject(byte[] arrBytes)
+        {
+            using (MemoryStream stream = new MemoryStream(arrBytes))
+            {
+                var formatter = new BinaryFormatter();
+                return (T2SClientMessage)formatter.Deserialize(stream);
+            }
         }
 
         private byte[] GetBytesFromBitmap(Bitmap bitmapPicture)
@@ -446,25 +466,6 @@ namespace T2SOverlay
         {
             MemoryStream streamBitmap = new MemoryStream(bitmapPicture);
             return (new Bitmap((Bitmap)Image.FromStream(streamBitmap)));
-        }
-        
-        /// <summary>
-        /// Does the opposite of the above
-        /// </summary>
-        /// <param name="bitmapPicture"></param>
-        /// <returns></returns>
-        private Bitmap GetBitmapFromString64(string bitmapPicture)
-        {
-            byte[] decoded = Convert.FromBase64String(FixBase64ForImage(bitmapPicture));
-            MemoryStream streamBitmap = new MemoryStream(decoded);
-            return (new Bitmap((Bitmap)Image.FromStream(streamBitmap)));
-        }
-
-        private string FixBase64ForImage(string Image)
-        {
-            StringBuilder sbText = new StringBuilder(Image, Image.Length);
-            sbText.Replace("\r\n", String.Empty); sbText.Replace(" ", String.Empty);
-            return sbText.ToString();
         }
 
         /// <summary>
@@ -512,12 +513,12 @@ namespace T2SOverlay
                     textboxOpened = true;
                 }));
             }
-            if(e.Key.Equals(hotkeyDisplay) && textboxOpened && tb != null)
+            if (e.Key.Equals(hotkeyDisplay) && textboxOpened && tb != null)
             {
                 tb.addHotkeyPressedButton(e.Key.ToString().ToLower());
             }
             //Unregister all hotkeys EXCEPT the hotkeyDisable one
-            if(e.Key.Equals(hotkeyDisableHotkeys) && !disabledHotKeys)
+            if (e.Key.Equals(hotkeyDisableHotkeys) && !disabledHotKeys)
             {
                 disabledHotKeys = true;
                 keyboard.UnregisterHotKeys();

@@ -2,9 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -96,6 +98,7 @@ namespace T2SOverlay
 
             byte[] recBuf = new byte[received]; //Received buffer which should be the header to tell us the buffer length of the json message (should be length 33 with pipe at the end)
             Array.Copy(buffer, recBuf, received);
+            Console.WriteLine("Init: " + Encoding.ASCII.GetString(recBuf));
 
             int headerReceived;
             if(Int32.TryParse(Encoding.ASCII.GetString(recBuf).Split('|')[0], out headerReceived))
@@ -103,16 +106,16 @@ namespace T2SOverlay
                 Console.WriteLine("header received: " + headerReceived);
                 recBuf = new byte[headerReceived];
                 received = current.Receive(recBuf, headerReceived, SocketFlags.None);
-                if (received == 0)
+                while (received < headerReceived)
                 {
-                    Console.WriteLine("--------------ERROR--------------");
-                    Console.WriteLine("Receive Response failed");
-                    Console.WriteLine("Expected to receive bytes: " + headerReceived);
-                    current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
-                    return; //Nothing to receive (which would be REALLY weird because it's expecting to receive something so print stuff)
+                    byte[] tempBuffer = new byte[headerReceived - received];
+                    int appendableBytes = current.Receive(tempBuffer, headerReceived - received, SocketFlags.None);
+                    Array.Copy(tempBuffer, 0, recBuf, received, tempBuffer.Length);
+                    received += appendableBytes;
                 }
             }
-
+            byte[] temp = new byte[recBuf.Length];
+            Array.Copy(recBuf, temp, temp.Length);
             string header = recBuf.Length.ToString();
             //If the header length is larger than the maximum length, we're gonna assume that the dude is trying to destroy someone with a fat receive. 
             //There's no reason for something to be this large
@@ -123,8 +126,26 @@ namespace T2SOverlay
                 {
                     header += " "; //Append empty spaces until header is max length (32)
                 }
-                byte[] message = Encoding.ASCII.GetBytes((header + "|" + Encoding.ASCII.GetString(recBuf))); //Append message with the header
-                
+
+                byte[] headerBytes = Encoding.ASCII.GetBytes(header + "|");
+                Test.server = recBuf;
+                T2SClientMessage clientMessage = (T2SClientMessage)MainWindow.ByteArrayToObject(recBuf);
+                temp = MainWindow.ObjectToByteArray(clientMessage);
+                recBuf = new byte[temp.Length + headerBytes.Length];
+
+                Array.Copy(headerBytes, recBuf, headerBytes.Length);
+                Array.Copy(temp, 0, recBuf, 33, temp.Length);
+
+                byte[] message = recBuf; //Append message with the header
+
+                foreach(byte b in message)
+                {
+                    if(b == 0)
+                    {
+                        Console.WriteLine("ZEROS HERE");
+                    }
+                }
+
                 //Send to all connected sockets except self
                 foreach (SocketPair s in clientSockets)
                 {
@@ -133,12 +154,11 @@ namespace T2SOverlay
                         s.socket.Send(message);
                     }
                 }
-                Console.WriteLine(Encoding.ASCII.GetString(recBuf));
                 Console.WriteLine("Size of this buffer: " + recBuf.Length);
-                T2SClientMessage clientMessage = JsonConvert.DeserializeObject<T2SClientMessage>(Encoding.ASCII.GetString(recBuf));
                 //If this is the first connection, we need to update our socketpair MacAddr for audit (also just send back to client)
                 if (clientMessage.FirstConnect)
                 {
+                    Console.WriteLine("First connect: " + clientMessage.Username);
                     foreach (SocketPair s in clientSockets)
                     {
                         if (s.socket == current)

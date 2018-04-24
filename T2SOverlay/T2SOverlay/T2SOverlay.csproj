@@ -67,6 +67,7 @@
     </Compile>
     <Compile Include="T2SClientMessage.cs" />
     <Compile Include="T2SUser.cs" />
+    <Compile Include="Test.cs" />
     <Compile Include="Textbox.xaml.cs">
       <DependentUpon>Textbox.xaml</DependentUpon>
     </Compile>
