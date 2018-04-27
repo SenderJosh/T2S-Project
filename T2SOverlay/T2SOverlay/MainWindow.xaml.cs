@@ -491,9 +491,18 @@ namespace T2SOverlay
         {
             if (!string.IsNullOrEmpty(message.Message))
             {
+                T2SUser sender = null;
+                //Find profile picture from list of users
+                foreach(T2SUser user in ConnectedUsers)
+                {
+                    if (user.MacAddr == message.MacAddr)
+                    {
+                        sender = user;
+                    }
+                }
                 ChatBox.Items.Add(new MessageTemplate
                 {
-                    ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
+                    ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(sender.ProfilePicture)),
                     Message = message.Message
                 });
             }
