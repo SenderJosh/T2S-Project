@@ -229,6 +229,18 @@ namespace T2SOverlay
                         s.socket.Send(message);
                     }
                 }
+                if(clientMessage.UpdateProfile)
+                {
+                    foreach(SocketPair s in clientSockets)
+                    {
+                        if(s.MacAddr == clientMessage.MacAddr)
+                        {
+                            s.ProfilePicture = (clientMessage.ProfilePicture == null) ? s.ProfilePicture : clientMessage.ProfilePicture;
+                            s.Username = clientMessage.Username;
+                            break;
+                        }
+                    }
+                }
                 //If this is the first connection, we need to update our socketpair MacAddr for audit (also just send back to client)
                 if (clientMessage.FirstConnect)
                 {
