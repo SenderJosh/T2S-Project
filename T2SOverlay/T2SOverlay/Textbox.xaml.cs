@@ -25,7 +25,7 @@ namespace T2SOverlay
         public Textbox(MainWindow instance)
         {
             InitializeComponent();
-
+            MainWindow.UnregisterHotkeys(); //Do this temporarily until closed
             this.instance = instance;
         }
         
@@ -33,7 +33,7 @@ namespace T2SOverlay
         {
             if (e.Key == Key.Return || e.Key == Key.Enter)
             {
-                instance.SendMessage(textbox.Text);
+                instance.SendMessage(textbox.Text, false, false); //We will never update profile or do a first connect when a user sends a message
                 instance.textboxOpened = false;
                 this.Close();
             }
@@ -44,14 +44,14 @@ namespace T2SOverlay
             }
         }
 
-        public void addHotkeyPressedButton(string key)
-        {
-            textbox.Text += key;
-        }
-
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             this.textbox.Focus();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            MainWindow.LoadHotkeys(); //Load hotkeys back once closed
         }
     }
 }

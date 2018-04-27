@@ -119,6 +119,7 @@ namespace T2SOverlay
                 MainWindow.hotkeyMute = hotkeyMute;
                 MainWindow.hotkeyDisableHotkeys = hotkeyDisableHotkeys;
             }
+            this.Close();
         }
     }
 }

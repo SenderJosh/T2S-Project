@@ -1,14 +1,23 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Speech.Synthesis;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
+using System.Windows.Media.Imaging;
 
 namespace T2SOverlay
 {
@@ -22,29 +31,39 @@ namespace T2SOverlay
     /// </summary>
     public partial class MainWindow : Window
     {
+
         //Client
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
+        private static Socket ClientSocket;
 
         //Server
-        private const int BUFFER_SIZE = 2048;
-        private IPAddress IP = IPAddress.Loopback;
+        public static IPAddress IP = IPAddress.Loopback; //use IPAddress.Loopback if creating server
         private const int PORT = 100;
-        private static readonly byte[] buffer = new byte[BUFFER_SIZE];
+        private bool ServerHost = false;
 
-        private static readonly Socket ClientSocket = new Socket
-            (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         private SpeechSynthesizer speech;
+
+        private List<T2SUser> ConnectedUsers;
+
 
         //Settings
         private Settings settings;
         public static Keys hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys; //Global hotkey
-        private KeyboardHook keyboard = new KeyboardHook();
+        private static KeyboardHook keyboard = new KeyboardHook();
+
+        //User information
+        private Profile profile;
+        public byte[] ProfilePicture;
+        public string Username;
+        private string MacAddr;
 
         public MainWindow()
         {
             InitializeComponent();
             DisconnectMenuItem.IsEnabled = false;
             LabelIP.Content = "Disconnected";
+
+            ConnectedUsers = new List<T2SUser>();
 
             //Setup text to speech synth
             speech = new SpeechSynthesizer();
@@ -53,7 +72,36 @@ namespace T2SOverlay
 
             keyboard.KeyPressed += new EventHandler<KeyPressedEventArgs>(Keyboard_KeyPressed);
 
+            //Load user information
+            MacAddr = (from nic in NetworkInterface.GetAllNetworkInterfaces()
+                       where nic.OperationalStatus == OperationalStatus.Up
+                       select nic.GetPhysicalAddress().ToString()).FirstOrDefault();
+
             string json = "";
+            //Load profile data
+            if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json"))
+            {
+                json = File.ReadAllText(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json");
+                T2SUser user = JsonConvert.DeserializeObject<T2SUser>(json);
+                ProfilePicture = user.ProfilePicture;
+                Username = user.Username;
+            }
+            else
+            {
+                //Create and load default
+                Username = Environment.UserName; //Just use their username from their PC
+                ProfilePicture = GetBytesFromBitmap(Properties.Resources.blank_profile); //convert image to string
+                json = JsonConvert.SerializeObject(new T2SUser()
+                {
+                    Username = this.Username,
+                    ProfilePicture = this.ProfilePicture,
+                    MacAddr = this.MacAddr
+                });
+                Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
+                File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json", json);
+            }
+
+            json = "";
             //Load hotkeyMute and hotkeyDisplay, then register them
             if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json"))
             {
@@ -74,7 +122,11 @@ namespace T2SOverlay
                 Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
                 File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json", json);
             }
+            LoadHotkeys();
+        }
 
+        public static void LoadHotkeys()
+        {
             //Register hotkeys
             try
             {
@@ -86,6 +138,11 @@ namespace T2SOverlay
             {
                 Console.WriteLine(e.ToString());
             }
+        }
+
+        public static void UnregisterHotkeys()
+        {
+            keyboard.UnregisterHotKeys();
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -112,12 +169,20 @@ namespace T2SOverlay
         //Open new window to edit profile
         private void ProfileMenuItem_Click(object sender, RoutedEventArgs e)
         {
-
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                profile = new Profile(this, this.ProfilePicture, this.Username);
+                profile.Show();
+                profile.Activate();
+                profile.Focus();
+            }));
         }
 
         //Connect to chat server
         private async void ConnectMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            IPForm form = new IPForm();
+            form.ShowDialog();
             bool conn = await Connect();
             //Set label to connected IP
             if (conn)
@@ -156,6 +221,7 @@ namespace T2SOverlay
                 && !DisconnectMenuItem.IsEnabled)
             {
                 Server.SetupServer();
+                ServerHost = true;
                 ConnectMenuItem.IsEnabled = false;
                 CreateServerMenuItem.IsEnabled = false;
                 DisconnectMenuItem.IsEnabled = true;
@@ -171,6 +237,8 @@ namespace T2SOverlay
                     ConnectMenuItem.IsEnabled = true;
                     CreateServerMenuItem.IsEnabled = true;
                     LabelIP.Content = "Disconnected";
+
+                    ServerHost = false;
                 }
             }
         }
@@ -187,17 +255,41 @@ namespace T2SOverlay
 
         private void Disconnect()
         {
+            ClientSocket.Shutdown(SocketShutdown.Both);
+            ClientSocket.Close();
             //If the server was created, make sure to shut it down and disconnect other sockets
-            if(!CreateServerMenuItem.IsEnabled)
+            if (ServerHost)
             {
                 Server.CloseAllSockets();
             }
-            ClientSocket.Shutdown(SocketShutdown.Both);
-            ClientSocket.Close();
+            ConnectedUsers.Clear();
+            ListView_ConnectedUsers.Items.Clear();
+            ChatBox.Items.Clear();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            //Save keys
+            Keys[] keys = { hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys };
+            string json = JsonConvert.SerializeObject(keys);
+            Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
+            File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json", json);
+
+            //Save profile
+            json = JsonConvert.SerializeObject(new T2SUser()
+            {
+                Username = this.Username,
+                ProfilePicture = this.ProfilePicture,
+                MacAddr = this.MacAddr
+            });
+            Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
+            File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json", json);
         }
 
         private async Task<bool> Connect()
         {
+            ClientSocket = new Socket
+            (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             int attempts = 0;
             bool success = false;
             while (attempts++ < 5 && !ClientSocket.Connected)
@@ -209,6 +301,7 @@ namespace T2SOverlay
                     {
                         ClientSocket.Connect(IP, PORT);
                         Console.WriteLine("Connected");
+                        SendMessage("", true, true); //First connect is true
                         MakeRequests();
                         return true;
                     }
@@ -226,8 +319,8 @@ namespace T2SOverlay
             Console.WriteLine("Now making requests to receive responses");
             Task.Run(() =>
             {
-                //Continuously check for response
-                while (true)
+                //Continuously check for response in a syncrhonous fashion in another thread
+                while (true && ClientSocket.Connected)
                 {
                     ReceiveResponse();
                 }
@@ -235,42 +328,252 @@ namespace T2SOverlay
         }
 
         /// <summary>
-        /// Sends a string to the server with ASCII encoding.
+        /// Sends a JSON string to the server, simply containing a T2SClientMessage
         /// </summary>
-        public void SendMessage(string text)
+        public void SendMessage(string text, bool firstConnect, bool updateProfile)
         {
-            string orig = text;
-            //Append name
-            //TODO Use real username
-            text = "username: " + text;
-            byte[] buffer = Encoding.ASCII.GetBytes(text);
-            //Append own text
-            ChatBox.AppendText("Me: " + orig + "\n");
-            ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
+            T2SClientMessage message = new T2SClientMessage()
+            {
+                MacAddr = this.MacAddr,
+                ProfilePicture = this.ProfilePicture,
+                UpdateProfile = updateProfile, //change to be a bool that is set when we add Profile settings
+                Username = this.Username,
+                FirstConnect = firstConnect, //change to be a bool
+                Message = text
+            };
+            byte[] buffer = ObjectToByteArray(message), temp = ObjectToByteArray(message);
+
+            string header = buffer.Length.ToString();
+            //If the header length is larger than the maximum length, we're gonna assume that the dude is trying to destroy someone with a fat receive. 
+            //There's no reason for something to be this large
+            //Therefore, just let the sender know that their message is waaaay too big
+            if (header.Length < 32)
+            {
+                Console.WriteLine("Generating header...");
+                for (int i = header.Length; i < 32; i++)
+                {
+                    header += " "; //Append empty spaces until header is max length (32)
+                }
+                byte[] headerBytes = Encoding.ASCII.GetBytes(header + "|");
+
+                buffer = new byte[temp.Length + headerBytes.Length];
+
+                Array.Copy(headerBytes, buffer, headerBytes.Length);
+                Array.Copy(temp, 0, buffer, 33, temp.Length);
+                //Append own text
+                ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendChatBoxListViewSeparateThread), new object[] { message });
+                ClientSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
+            }
         }
 
         /// <summary>
         /// Receives byte array from server, converts to ASCII encoding to display
         /// Note that this is occurring on a separate thread
+        /// 
+        /// HEADER AND BODY
+        /// Header is defined as the zeroth index of a BAR | string split
+        /// The header may also never be larger than 32 bytes (if it is, then this implies the message is SUPER long and we should probably just ignore it.
+        ///     The server should also recognize this failure and send an error message to the sending client that the message sent is too large (like, honestly, 32 bytes is a 32 digit integer. 
+        ///     Who even would send something that big? 
+        ///     RIP that person's bandwidth lol))
+        /// The header will represent the TOTAL LENGTH EXCLUSIVE of the header, thereby representing the buffer length of the NEXT receive, which should by protocol be a json file.
+        /// The header will also always be length 32, append pipe separator to be 33
+        /// 
+        /// The first index will be a json 
+        /// We follow forward with the assumption that we are working with ASCII text. Perhaps later for augmentation we switch to Encoding.Unicode and double/quadruple the header size
+        /// due to the nature of unicode characters being larger
+        /// 
         /// </summary>
         private void ReceiveResponse()
         {
-            var buffer = new byte[2048];
-            int received = ClientSocket.Receive(buffer, SocketFlags.None);
-            if (received == 0) return;
-            var data = new byte[received];
-            Array.Copy(buffer, data, received);
-            string text = Encoding.ASCII.GetString(data);
+            int received = 0;
+            var buffer = new byte[33];
+            try
+            {
+                received =  ClientSocket.Receive(buffer, 33, SocketFlags.None);
+            }
+            catch(Exception e)
+            {
+                return;
+            }
+            if (received == 0) return; //Nothing to receive
+            string text = Encoding.ASCII.GetString(buffer); //Hopefully the header
+            Console.WriteLine(text);
+            //If full header not grabbed, append the new bytes until header is grabbed
+            while (received < 33)
+            {
+                byte[] tempBuffer = new byte[33 - received];
+                int appendableBytes = ClientSocket.Receive(tempBuffer, 33 - received, SocketFlags.None);
+                Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
+                received += appendableBytes;
+            }
 
-            //Append to visual and do TTS
-            speech.SpeakAsync(text);
-            ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendRTBSeparateThread), new object[] { text });
+            int header;
+            //Successfully got header
+            if (Int32.TryParse(text.Split('|')[0], out header))
+            {
+                buffer = new byte[header];
+                received = ClientSocket.Receive(buffer, header, SocketFlags.None);
+                while(received < header)
+                {
+                    byte[] tempBuffer = new byte[header - received];
+                    int appendableBytes = ClientSocket.Receive(tempBuffer, header - received, SocketFlags.None);
+                    Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
+                    received += appendableBytes;
+                }
+
+                Console.WriteLine("got header which is: " + header);
+
+                T2SClientMessage message = (T2SClientMessage)ByteArrayToObject(buffer);
+                //Perform logic
+                //In order to do anything, the client must first be connected
+                if (message.Connected)
+                {
+                    //If this is the first connection, we're not going to display anything new in the chat
+                    if (message.FirstConnect)
+                    {
+                        ConnectedUsers.Add(new T2SUser()
+                        {
+                            MacAddr = message.MacAddr,
+                            Username = message.Username,
+                            ProfilePicture = message.ProfilePicture
+                        });
+                        ListView_ConnectedUsers.Dispatcher.Invoke(new AppendListViewConnectedUsersSeparateThreadCallback(this.AppendListViewConnecteduseresSeparateThread), new object[] { message });
+                    }
+                    else
+                    {
+                        if (message.UpdateProfile)
+                        {
+                            bool found = false;
+                            //Modify user if macaddr exists. If not, add
+                            foreach (T2SUser user in ConnectedUsers)
+                            {
+                                if (user.MacAddr == message.MacAddr)
+                                {
+                                    //exists. So update the user
+                                    user.ProfilePicture = (message.ProfilePicture == null) ? user.ProfilePicture : message.ProfilePicture;
+                                    user.Username = message.Username; //Should never be null
+                                    found = true;
+                                }
+                            }
+                            //Not found, therefore add the user to ConnectedUser list and thingy
+                            if (!found)
+                            {
+                                ConnectedUsers.Add(new T2SUser()
+                                {
+                                    MacAddr = message.MacAddr,
+                                    Username = message.Username,
+                                    ProfilePicture = message.ProfilePicture
+                                });
+                            }
+                        }
+                        //Append to visual and do TTS
+                        speech.SpeakAsync(message.Message);
+                        ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendChatBoxListViewSeparateThread), new object[] { message });
+                    }
+                }
+                else
+                {
+                    T2SUser user = ConnectedUsers.Find(x => x.MacAddr == message.MacAddr);
+                    if (user != null)
+                        ConnectedUsers.Remove(user);
+                    ListView_ConnectedUsers.Dispatcher.Invoke(new RemoveListViewConnectedUsersSeparateThreadCallback(this.RemoveListViewConnecteduseresSeparateThread), new object[] { message });
+                }
+            }
         }
 
-        public delegate void AppendRTBSeparateThreadCallback(string message);
-        public void AppendRTBSeparateThread(string text)
+        public delegate void AppendRTBSeparateThreadCallback(T2SClientMessage message);
+        public void AppendChatBoxListViewSeparateThread(T2SClientMessage message)
         {
-            ChatBox.AppendText(text + "\n");
+            if (!string.IsNullOrEmpty(message.Message))
+            {
+                ChatBox.Items.Add(new MessageTemplate
+                {
+                    ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
+                    Message = message.Message
+                });
+            }
+        }
+
+        public delegate void AppendListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
+        public void AppendListViewConnecteduseresSeparateThread(T2SClientMessage message)
+        {
+            ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass
+            {
+                ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
+                Username = message.Username,
+                MacAddr = message.MacAddr
+            });
+        }
+
+        public delegate void RemoveListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
+        public void RemoveListViewConnecteduseresSeparateThread(T2SClientMessage message)
+        {
+            int index = 0;
+            foreach (ConnectedUsersTemplateClass user in ListView_ConnectedUsers.Items)
+            {
+                if (user.MacAddr == message.MacAddr)
+                    break;
+                else
+                    index++;
+            }
+
+            ListView_ConnectedUsers.Items.RemoveAt(index);
+        }
+
+        // Convert an object to a byte array
+        public static byte[] ObjectToByteArray(Object obj)
+        {
+            using (var stream = new MemoryStream())
+            {
+                var formatter = new BinaryFormatter();
+                formatter.Serialize(stream, obj);
+                return stream.ToArray();
+            }
+        }
+
+        // Convert a byte array to an Object
+        public static T2SClientMessage ByteArrayToObject(byte[] arrBytes)
+        {
+            using (MemoryStream stream = new MemoryStream(arrBytes))
+            {
+                var formatter = new BinaryFormatter();
+                return (T2SClientMessage)formatter.Deserialize(stream);
+            }
+        }
+
+        private byte[] GetBytesFromBitmap(Bitmap bitmapPicture)
+        {
+            MemoryStream stream = new MemoryStream();
+            bitmapPicture.Save(stream, ImageFormat.Bmp);
+            return stream.ToArray();
+        }
+
+        private Bitmap GetBitmapFromBytes(byte[] bitmapPicture)
+        {
+            MemoryStream streamBitmap = new MemoryStream(bitmapPicture);
+            return (new Bitmap((Bitmap)System.Drawing.Image.FromStream(streamBitmap)));
+        }
+
+        /// <summary>
+        /// Turn the Bitmap into a usable BitmapImage
+        /// </summary>
+        /// <param name="bitmap"></param>
+        /// <returns></returns>
+        private BitmapImage BitmapToImageSource(Bitmap bitmap)
+        {
+            using (MemoryStream memory = new MemoryStream())
+            {
+                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
+                memory.Position = 0;
+                BitmapImage bitmapimage = new BitmapImage();
+                bitmapimage.BeginInit();
+                bitmapimage.StreamSource = memory;
+                bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapimage.EndInit();
+
+                return bitmapimage;
+            }
         }
 
         #endregion
@@ -286,7 +589,7 @@ namespace T2SOverlay
         private bool disabledHotKeys = false;
         private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
-            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
+            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket != null && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -297,12 +600,9 @@ namespace T2SOverlay
                     textboxOpened = true;
                 }));
             }
-            if(e.Key.Equals(hotkeyDisplay) && textboxOpened && tb != null)
-            {
-                tb.addHotkeyPressedButton(e.Key.ToString().ToLower());
-            }
+
             //Unregister all hotkeys EXCEPT the hotkeyDisable one
-            if(e.Key.Equals(hotkeyDisableHotkeys) && !disabledHotKeys)
+            if (e.Key.Equals(hotkeyDisableHotkeys) && !disabledHotKeys)
             {
                 disabledHotKeys = true;
                 keyboard.UnregisterHotKeys();
@@ -342,6 +642,23 @@ namespace T2SOverlay
 
         ////////////////////////////////////////////////////////////////////////////////
 
+        #endregion
+
+        #region MessageTemplateClass
+        class MessageTemplate
+        {
+            public BitmapImage ProfilePicture { get; set; }
+            public string Message { get; set; }
+        }
+        #endregion
+
+        #region ConnectedUsersTemplateClass
+        class ConnectedUsersTemplateClass
+        {
+            public BitmapImage ProfilePicture { get; set; }
+            public string Username { get; set; }
+            public string MacAddr { get; set; }
+        }
         #endregion
     }
 }

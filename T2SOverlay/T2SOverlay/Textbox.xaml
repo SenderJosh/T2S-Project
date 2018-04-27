@@ -8,7 +8,8 @@
         Title="Textbox" Height="24.37" Width="300" ResizeMode="NoResize" WindowStyle="None"
         Focusable="True"
         Topmost="True"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
     <Grid>
         <TextBox Name="textbox" KeyDown="TextBox_KeyDown" />
     </Grid>
