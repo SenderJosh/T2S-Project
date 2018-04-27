@@ -331,6 +331,7 @@ namespace T2SOverlay
                 {
                     ReceiveResponse();
                 }
+                Disconnect();
             });
         }
 
@@ -393,6 +394,7 @@ namespace T2SOverlay
         {
             if (!IsConnected(ClientSocket))
             {
+                Console.WriteLine("here");
                 Disconnect();
             }
             int received = 0;
@@ -403,6 +405,7 @@ namespace T2SOverlay
             }
             catch(Exception e)
             {
+                Console.WriteLine("EXCEPTION");
                 return;
             }
             if (received == 0) return; //Nothing to receive
@@ -499,11 +502,6 @@ namespace T2SOverlay
                 return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
             }
             catch (SocketException) { return false; }
-        }
-
-        public bool IsSocketConnected()
-        {
-            return !((ClientSocket.Poll(1000, SelectMode.SelectRead) && (ClientSocket.Available == 0)) || !ClientSocket.Connected);
         }
 
         #endregion

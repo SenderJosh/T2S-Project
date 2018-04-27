@@ -163,7 +163,7 @@ namespace T2SOverlay
                 //Sendto everyone
                 foreach (SocketPair s in clientSockets)
                 {
-                    if(!s.socket.Connected)
+                    if(s.socket.Connected)
                     {
                         s.socket.Send(otherClientBufferMessage);
                     }
@@ -273,6 +273,15 @@ namespace T2SOverlay
                 Console.WriteLine("HEADER TOO LARGE!!! Header length: " + header.Length);
             }
             current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
+        }
+
+        public bool IsConnected(Socket socket)
+        {
+            try
+            {
+                return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (SocketException) { return false; }
         }
 
         class SocketPair
