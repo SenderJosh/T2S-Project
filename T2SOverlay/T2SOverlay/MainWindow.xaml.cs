@@ -262,8 +262,11 @@ namespace T2SOverlay
 
         private void Disconnect()
         {
-            ClientSocket.Shutdown(SocketShutdown.Both);
-            ClientSocket.Close();
+            if(ClientSocket.Connected)
+            {
+                ClientSocket.Shutdown(SocketShutdown.Both);
+                ClientSocket.Close();
+            }
             //If the server was created, make sure to shut it down and disconnect other sockets
             if (ServerHost)
             {
