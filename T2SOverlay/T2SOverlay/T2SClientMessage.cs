@@ -21,6 +21,7 @@ namespace T2SOverlay
     [Serializable]
     public class T2SClientMessage
     {
+        public bool ServerConnectionAlive { get; set; } = true; //To be modified by the server. If this is ever false, shutdown client connection
         public bool Connected { get; set; } = true; //To be modified by the server. If this is ever false, remove
         public string MacAddr { get; set; } = null;
         public string Username { get; set; } = null;

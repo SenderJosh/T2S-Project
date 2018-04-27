@@ -332,6 +332,11 @@ namespace T2SOverlay
                     ReceiveResponse();
                 }
             });
+            Task.Run(() =>
+            {
+                while (IsSocketConnected()) { }
+                Disconnect();
+            });
         }
 
         /// <summary>
@@ -490,6 +495,13 @@ namespace T2SOverlay
             }
         }
 
+        public bool IsSocketConnected()
+        {
+            return !((ClientSocket.Poll(1000, SelectMode.SelectRead) && (ClientSocket.Available == 0)) || !ClientSocket.Connected);
+        }
+
+        #region Update Delegates
+
         public delegate void AppendRTBSeparateThreadCallback(T2SClientMessage message);
         public void AppendChatBoxListViewSeparateThread(T2SClientMessage message)
         {
@@ -511,8 +523,6 @@ namespace T2SOverlay
                 });
             }
         }
-
-        #region Update Delegates
 
         public delegate void AppendListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
         public void AppendListViewConnecteduseresSeparateThread(T2SClientMessage message)
