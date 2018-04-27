@@ -633,7 +633,7 @@ namespace T2SOverlay
         ////////////////////////////////////////////////////////////////////////////////
 
         private Textbox tb;
-        private bool disabledHotKeys = false;
+        private bool disabledHotKeys = false, muted = false;
         private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
             if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket != null && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
@@ -660,6 +660,17 @@ namespace T2SOverlay
                 disabledHotKeys = false;
                 keyboard.RegisterHotKey(hotkeyDisplay);
                 keyboard.RegisterHotKey(hotkeyMute);
+            }
+
+            if(e.Key.Equals(hotkeyMute) && muted)
+            {
+                speech.Volume = 80;
+                muted = false;
+            }
+            else if(e.Key.Equals(hotkeyMute) && !muted)
+            {
+                speech.Volume = 0;
+                muted = true;
             }
         }
 
