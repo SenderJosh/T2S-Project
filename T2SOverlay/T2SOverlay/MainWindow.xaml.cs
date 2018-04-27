@@ -332,15 +332,10 @@ namespace T2SOverlay
                     ReceiveResponse();
                 }
             });
-            Task.Run(() =>
-            {
-                while (IsSocketConnected()) { }
-                Disconnect();
-            });
         }
 
         /// <summary>
-        /// Sends a JSON string to the server, simply containing a T2SClientMessage
+        /// Sends a bytes to the server, simply containing a T2SClientMessage and header
         /// </summary>
         public void SendMessage(string text, bool firstConnect, bool updateProfile)
         {
@@ -391,13 +386,13 @@ namespace T2SOverlay
         /// The header will represent the TOTAL LENGTH EXCLUSIVE of the header, thereby representing the buffer length of the NEXT receive, which should by protocol be a json file.
         /// The header will also always be length 32, append pipe separator to be 33
         /// 
-        /// The first index will be a json 
-        /// We follow forward with the assumption that we are working with ASCII text. Perhaps later for augmentation we switch to Encoding.Unicode and double/quadruple the header size
-        /// due to the nature of unicode characters being larger
+        /// The first index will be a byte array that is the object T2SClientMessage
         /// 
         /// </summary>
         private void ReceiveResponse()
         {
+            if (!IsConnected(ClientSocket))
+                return;
             int received = 0;
             var buffer = new byte[33];
             try
@@ -495,10 +490,21 @@ namespace T2SOverlay
             }
         }
 
+        public bool IsConnected(Socket socket)
+        {
+            try
+            {
+                return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (SocketException) { return false; }
+        }
+
         public bool IsSocketConnected()
         {
             return !((ClientSocket.Poll(1000, SelectMode.SelectRead) && (ClientSocket.Available == 0)) || !ClientSocket.Connected);
         }
+
+        #endregion
 
         #region Update Delegates
 
@@ -579,8 +585,6 @@ namespace T2SOverlay
             MemoryStream streamBitmap = new MemoryStream(bitmapPicture);
             return (new Bitmap((Bitmap)System.Drawing.Image.FromStream(streamBitmap)));
         }
-
-        #endregion
 
         /// <summary>
         /// Turn the Bitmap into a usable BitmapImage
