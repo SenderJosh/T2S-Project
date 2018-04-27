@@ -270,7 +270,7 @@ namespace T2SOverlay
                 Server.CloseAllSockets();
             }
             ConnectedUsers.Clear();
-            ListView_ConnectedUsers.Items.Clear();
+            CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
             ChatBox.Items.Clear();
         }
 
@@ -512,47 +512,29 @@ namespace T2SOverlay
             }
         }
 
+        #region Update Delegates
+
         public delegate void AppendListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
         public void AppendListViewConnecteduseresSeparateThread(T2SClientMessage message)
         {
-            /*ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass
-            {
-                ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
-                Username = message.Username,
-                MacAddr = message.MacAddr
-            });*/
-            ICollectionView view = CollectionViewSource.GetDefaultView(ConnectedUsers);
-            view.Refresh();
+            CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
         }
 
         public delegate void UpdateUserListViewConnectedUsersSeparateThreadCallback(T2SUser user);
         public void UpdateUserListViewConnecteduseresSeparateThread(T2SUser user)
         {
-            /*foreach (ConnectedUsersTemplateClass userTemp in ListView_ConnectedUsers.Items)
-            {
-                if (userTemp.MacAddr == user.MacAddr)
-                    break;
-                else
-                    index++;
-            }*/
-            ICollectionView view = CollectionViewSource.GetDefaultView(ConnectedUsers);
-            view.Refresh();
+            CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
         }
 
         public delegate void RemoveListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
         public void RemoveListViewConnecteduseresSeparateThread(T2SClientMessage message)
         {
-            int index = 0;
-            foreach (ConnectedUsersTemplateClass user in ListView_ConnectedUsers.Items)
-            {
-                if (user.MacAddr == message.MacAddr)
-                    break;
-                else
-                    index++;
-            }
-
-            ListView_ConnectedUsers.Items.RemoveAt(index);
+            CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
         }
+
+        #endregion
+
+        #region OBJ to Byte and Byte to OBJ procedures
 
         // Convert an object to a byte array
         public static byte[] ObjectToByteArray(Object obj)
@@ -587,6 +569,8 @@ namespace T2SOverlay
             MemoryStream streamBitmap = new MemoryStream(bitmapPicture);
             return (new Bitmap((Bitmap)System.Drawing.Image.FromStream(streamBitmap)));
         }
+
+        #endregion
 
         /// <summary>
         /// Turn the Bitmap into a usable BitmapImage

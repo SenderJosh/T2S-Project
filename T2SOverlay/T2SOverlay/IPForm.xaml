@@ -10,7 +10,7 @@
         <StackPanel Orientation="Vertical" Margin="20,20,0,0">
             <Label Content="IP (leave blank for localhost connection)" Foreground="White"/>
             <StackPanel Orientation="Horizontal">
-                <TextBox x:Name="IPAddress" Background="#FF181818" Foreground="White" Width="300" Height="38" />
+                <TextBox x:Name="IPAddress" Background="#FF181818" Foreground="White" Width="300" Height="38" FontSize="24" />
                 <Button Content="Connect" Background="#FF181818" Foreground="#FFB9B9B9" FontSize="20"  Margin="10,0,0,0" Width="148" Click="Button_Click" />
             </StackPanel>
         </StackPanel>

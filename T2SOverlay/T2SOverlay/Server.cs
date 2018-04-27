@@ -79,7 +79,8 @@ namespace T2SOverlay
         {
             Socket current = (Socket)AR.AsyncState;
             int received;
-
+            if (!current.Connected)
+                return;
             try
             {
                 received = current.EndReceive(AR);
