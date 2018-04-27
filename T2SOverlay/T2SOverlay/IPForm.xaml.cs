@@ -30,6 +30,7 @@ namespace T2SOverlay
             if (string.IsNullOrEmpty(IPAddress.Text))
             {
                 MainWindow.IP = System.Net.IPAddress.Loopback;
+                MainWindow.gotNewIP = true;
                 this.Close();
             }
             else
@@ -38,6 +39,7 @@ namespace T2SOverlay
                 if (System.Net.IPAddress.TryParse(IPAddress.Text, out addr))
                 {
                     MainWindow.IP = addr;
+                    MainWindow.gotNewIP = true;
                     this.Close();
                 }
                 else

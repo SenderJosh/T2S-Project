@@ -41,8 +41,11 @@ namespace T2SOverlay
         {
             foreach (SocketPair sock in clientSockets)
             {
-                sock.socket.Shutdown(SocketShutdown.Both);
-                sock.socket.Close();
+                if (sock.socket.Connected)
+                {
+                    sock.socket.Shutdown(SocketShutdown.Both);
+                    sock.socket.Close();
+                }
             }
             clientSockets.Clear();
 

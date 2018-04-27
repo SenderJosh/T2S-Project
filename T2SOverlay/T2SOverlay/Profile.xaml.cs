@@ -68,6 +68,10 @@ namespace T2SOverlay
         private void Window_Closed(object sender, EventArgs e)
         {
             MainWindow.LoadHotkeys();
+            if(MainWindow.ClientSocket.Connected)
+            {
+                instance.SendMessage("", false, false); //Send update message
+            }
         }
 
         //If you get 'dllimport unknown'-, then add 'using System.Runtime.InteropServices;'

@@ -34,7 +34,7 @@ namespace T2SOverlay
 
         //Client
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
-        private static Socket ClientSocket;
+        public static Socket ClientSocket;
 
         //Server
         public static IPAddress IP = IPAddress.Loopback; //use IPAddress.Loopback if creating server
@@ -178,11 +178,15 @@ namespace T2SOverlay
             }));
         }
 
+        public static bool gotNewIP = false;
         //Connect to chat server
         private async void ConnectMenuItem_Click(object sender, RoutedEventArgs e)
         {
             IPForm form = new IPForm();
             form.ShowDialog();
+            if (!gotNewIP)
+                return;
+            gotNewIP = false;
             bool conn = await Connect();
             //Set label to connected IP
             if (conn)
@@ -335,7 +339,7 @@ namespace T2SOverlay
             T2SClientMessage message = new T2SClientMessage()
             {
                 MacAddr = this.MacAddr,
-                ProfilePicture = this.ProfilePicture,
+                ProfilePicture = (updateProfile) ? this.ProfilePicture : null,
                 UpdateProfile = updateProfile, //change to be a bool that is set when we add Profile settings
                 Username = this.Username,
                 FirstConnect = firstConnect, //change to be a bool
