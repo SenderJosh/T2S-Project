@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -16,6 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Forms;
 using System.Windows.Media.Imaging;
 
@@ -43,7 +45,7 @@ namespace T2SOverlay
 
         private SpeechSynthesizer speech;
 
-        private List<T2SUser> ConnectedUsers;
+        public List<T2SUser> ConnectedUsers;
 
 
         //Settings
@@ -55,7 +57,7 @@ namespace T2SOverlay
         private Profile profile;
         public byte[] ProfilePicture;
         public string Username;
-        private string MacAddr;
+        public string MacAddr { get; }
 
         public MainWindow()
         {
@@ -64,6 +66,7 @@ namespace T2SOverlay
             LabelIP.Content = "Disconnected";
 
             ConnectedUsers = new List<T2SUser>();
+            ListView_ConnectedUsers.ItemsSource = ConnectedUsers;
 
             //Setup text to speech synth
             speech = new SpeechSynthesizer();
@@ -411,7 +414,7 @@ namespace T2SOverlay
                 Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
                 received += appendableBytes;
             }
-
+            Console.WriteLine("Received");
             int header;
             //Successfully got header
             if (Int32.TryParse(text.Split('|')[0], out header))
@@ -425,8 +428,6 @@ namespace T2SOverlay
                     Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
                     received += appendableBytes;
                 }
-
-                Console.WriteLine("got header which is: " + header);
 
                 T2SClientMessage message = (T2SClientMessage)ByteArrayToObject(buffer);
                 //Perform logic
@@ -458,6 +459,9 @@ namespace T2SOverlay
                                     user.ProfilePicture = (message.ProfilePicture == null) ? user.ProfilePicture : message.ProfilePicture;
                                     user.Username = message.Username; //Should never be null
                                     found = true;
+                                    //Found, therefore look for the user in the ListView_ConnectedUsers and update the user
+                                    ListView_ConnectedUsers.Dispatcher.Invoke(new UpdateUserListViewConnectedUsersSeparateThreadCallback(this.UpdateUserListViewConnecteduseresSeparateThread), new object[] { user });
+                                    break;
                                 }
                             }
                             //Not found, therefore add the user to ConnectedUser list and thingy
@@ -511,12 +515,28 @@ namespace T2SOverlay
         public delegate void AppendListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
         public void AppendListViewConnecteduseresSeparateThread(T2SClientMessage message)
         {
-            ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass
+            /*ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass
             {
                 ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
                 Username = message.Username,
                 MacAddr = message.MacAddr
-            });
+            });*/
+            ICollectionView view = CollectionViewSource.GetDefaultView(ConnectedUsers);
+            view.Refresh();
+        }
+
+        public delegate void UpdateUserListViewConnectedUsersSeparateThreadCallback(T2SUser user);
+        public void UpdateUserListViewConnecteduseresSeparateThread(T2SUser user)
+        {
+            /*foreach (ConnectedUsersTemplateClass userTemp in ListView_ConnectedUsers.Items)
+            {
+                if (userTemp.MacAddr == user.MacAddr)
+                    break;
+                else
+                    index++;
+            }*/
+            ICollectionView view = CollectionViewSource.GetDefaultView(ConnectedUsers);
+            view.Refresh();
         }
 
         public delegate void RemoveListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);

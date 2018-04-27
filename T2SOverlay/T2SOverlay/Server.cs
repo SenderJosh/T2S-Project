@@ -124,8 +124,7 @@ namespace T2SOverlay
                 }
                 return;
             }
-
-            Console.WriteLine("Server bytes received: " + received);
+            
             if(received == 0)
             {
                 Console.WriteLine("No bytes received; closing socket");
@@ -168,8 +167,7 @@ namespace T2SOverlay
 
             byte[] recBuf = new byte[received]; //Received buffer which should be the header to tell us the buffer length of the json message (should be length 33 with pipe at the end)
             Array.Copy(buffer, recBuf, received);
-            Console.WriteLine("Init: " + Encoding.ASCII.GetString(recBuf));
-
+            
             //Get until header is filled
             while (received < 33)
             {
@@ -182,7 +180,6 @@ namespace T2SOverlay
             int headerReceived;
             if(Int32.TryParse(Encoding.ASCII.GetString(recBuf).Split('|')[0], out headerReceived))
             {
-                Console.WriteLine("header received: " + headerReceived);
                 recBuf = new byte[headerReceived];
                 received = current.Receive(recBuf, headerReceived, SocketFlags.None);
                 //Get until object is filled
@@ -226,7 +223,6 @@ namespace T2SOverlay
                         s.socket.Send(message);
                     }
                 }
-                Console.WriteLine("Size of this buffer: " + recBuf.Length);
                 //If this is the first connection, we need to update our socketpair MacAddr for audit (also just send back to client)
                 if (clientMessage.FirstConnect)
                 {

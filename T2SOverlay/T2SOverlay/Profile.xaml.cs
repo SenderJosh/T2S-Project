@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -70,7 +71,20 @@ namespace T2SOverlay
             MainWindow.LoadHotkeys();
             if(MainWindow.ClientSocket.Connected)
             {
-                instance.SendMessage("", false, false); //Send update message
+                instance.SendMessage("", false, true); //Send update message
+                //Update self
+                T2SUser user = new T2SUser()
+                {
+                    MacAddr = instance.MacAddr,
+                    ProfilePicture = this.profilePicture,
+                    Username = Username.Text
+                };
+                instance.ListView_ConnectedUsers.Dispatcher.Invoke(new MainWindow.UpdateUserListViewConnectedUsersSeparateThreadCallback(instance.UpdateUserListViewConnecteduseresSeparateThread), new object[] { user });
+
+                instance.ConnectedUsers[instance.ConnectedUsers.FindIndex((x) => x.MacAddr == user.MacAddr)] = user;
+
+                ICollectionView view = CollectionViewSource.GetDefaultView(instance.ConnectedUsers);
+                view.Refresh();
             }
         }
 

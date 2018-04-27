@@ -10,7 +10,7 @@ namespace T2SOverlay
     /// <summary>
     /// Message that gets displayed on the front-end client
     /// </summary>
-    class T2SUser
+    public class T2SUser
     {
         public string MacAddr { get; set; } = null;
         public string Username { get; set; } = null;
