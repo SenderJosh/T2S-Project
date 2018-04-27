@@ -162,7 +162,12 @@ namespace T2SOverlay
 
                 //Sendto everyone
                 foreach (SocketPair s in clientSockets)
-                    s.socket.Send(otherClientBufferMessage);
+                {
+                    if(!s.socket.Connected)
+                    {
+                        s.socket.Send(otherClientBufferMessage);
+                    }
+                }
                 return;
             }
 

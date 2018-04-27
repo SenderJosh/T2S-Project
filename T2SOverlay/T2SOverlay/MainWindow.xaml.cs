@@ -271,7 +271,7 @@ namespace T2SOverlay
             }
             ConnectedUsers.Clear();
             CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
-            ChatBox.Items.Clear();
+            ChatBox.Dispatcher.Invoke(new ChatBoxClearSeparateThreadCallback(this.ChatBoxClearSeparateThread), new object[] { });
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -392,7 +392,9 @@ namespace T2SOverlay
         private void ReceiveResponse()
         {
             if (!IsConnected(ClientSocket))
-                return;
+            {
+                Disconnect();
+            }
             int received = 0;
             var buffer = new byte[33];
             try
@@ -507,6 +509,19 @@ namespace T2SOverlay
         #endregion
 
         #region Update Delegates
+
+        //Only really called when disconnected
+        public delegate void ChatBoxClearSeparateThreadCallback();
+        public void ChatBoxClearSeparateThread()
+        {
+            DisconnectMenuItem.IsEnabled = false;
+            ConnectMenuItem.IsEnabled = true;
+            CreateServerMenuItem.IsEnabled = true;
+            LabelIP.Content = "Disconnected";
+            ConnectedUsers.Clear();
+            CollectionViewSource.GetDefaultView(ConnectedUsers).Refresh();
+            ChatBox.Items.Clear();
+        }
 
         public delegate void AppendRTBSeparateThreadCallback(T2SClientMessage message);
         public void AppendChatBoxListViewSeparateThread(T2SClientMessage message)
