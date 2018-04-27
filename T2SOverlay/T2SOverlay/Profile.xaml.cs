@@ -69,7 +69,7 @@ namespace T2SOverlay
         private void Window_Closed(object sender, EventArgs e)
         {
             MainWindow.LoadHotkeys();
-            if(MainWindow.ClientSocket.Connected)
+            if(MainWindow.ClientSocket != null && MainWindow.ClientSocket.Connected)
             {
                 instance.SendMessage("", false, true); //Send update message
                 //Update self
