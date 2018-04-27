@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media.Imaging;
 
@@ -30,18 +31,20 @@ namespace T2SOverlay
     /// </summary>
     public partial class MainWindow : Window
     {
+
         //Client
         public bool textboxOpened = false; //Method to keep from opening multiple textboxes in case they use a common character key as their hotkey, and press it while typing their message
+        private static Socket ClientSocket;
 
         //Server
         private IPAddress IP = IPAddress.Loopback;
         private const int PORT = 100;
+        private bool ServerHost = false;
 
-        private static readonly Socket ClientSocket = new Socket
-            (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         private SpeechSynthesizer speech;
 
         private List<T2SUser> ConnectedUsers;
+
 
         //Settings
         private Settings settings;
@@ -199,6 +202,7 @@ namespace T2SOverlay
                 && !DisconnectMenuItem.IsEnabled)
             {
                 Server.SetupServer();
+                ServerHost = true;
                 ConnectMenuItem.IsEnabled = false;
                 CreateServerMenuItem.IsEnabled = false;
                 DisconnectMenuItem.IsEnabled = true;
@@ -214,6 +218,8 @@ namespace T2SOverlay
                     ConnectMenuItem.IsEnabled = true;
                     CreateServerMenuItem.IsEnabled = true;
                     LabelIP.Content = "Disconnected";
+
+                    ServerHost = false;
                 }
             }
         }
@@ -230,17 +236,31 @@ namespace T2SOverlay
 
         private void Disconnect()
         {
+            ClientSocket.Shutdown(SocketShutdown.Both);
+            ClientSocket.Close();
             //If the server was created, make sure to shut it down and disconnect other sockets
-            if (!CreateServerMenuItem.IsEnabled)
+            if (ServerHost)
             {
                 Server.CloseAllSockets();
             }
-            ClientSocket.Shutdown(SocketShutdown.Both);
-            ClientSocket.Close();
+            ConnectedUsers.Clear();
+            ListView_ConnectedUsers.Items.Clear();
+            ChatBox.Items.Clear();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            //Save keys
+            Keys[] keys = { hotkeyMute, hotkeyDisplay, hotkeyDisableHotkeys };
+            string json = JsonConvert.SerializeObject(keys);
+            Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming"); //Will create a directory if doesnt exist
+            File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\settings.json", json);
         }
 
         private async Task<bool> Connect()
         {
+            ClientSocket = new Socket
+            (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             int attempts = 0;
             bool success = false;
             while (attempts++ < 5 && !ClientSocket.Connected)
@@ -271,7 +291,7 @@ namespace T2SOverlay
             Task.Run(() =>
             {
                 //Continuously check for response in a syncrhonous fashion in another thread
-                while (true)
+                while (true && ClientSocket.Connected)
                 {
                     ReceiveResponse();
                 }
@@ -337,11 +357,28 @@ namespace T2SOverlay
         /// </summary>
         private void ReceiveResponse()
         {
+            int received = 0;
             var buffer = new byte[33];
-            int received = ClientSocket.Receive(buffer, 33, SocketFlags.None);
+            try
+            {
+                received =  ClientSocket.Receive(buffer, 33, SocketFlags.None);
+            }
+            catch(Exception e)
+            {
+                return;
+            }
             if (received == 0) return; //Nothing to receive
             string text = Encoding.ASCII.GetString(buffer); //Hopefully the header
             Console.WriteLine(text);
+            //If full header not grabbed, append the new bytes until header is grabbed
+            while (received < 33)
+            {
+                byte[] tempBuffer = new byte[33 - received];
+                int appendableBytes = ClientSocket.Receive(tempBuffer, 33 - received, SocketFlags.None);
+                Array.Copy(tempBuffer, 0, buffer, received, tempBuffer.Length);
+                received += appendableBytes;
+            }
+
             int header;
             //Successfully got header
             if (Int32.TryParse(text.Split('|')[0], out header))
@@ -357,56 +394,61 @@ namespace T2SOverlay
                 }
 
                 Console.WriteLine("got header which is: " + header);
-                Test.client = buffer;
-                for (int i = 0; i < Test.client.Length; i++)
-                {
-                    if (Test.client[i] != Test.server[i])
-                        Console.WriteLine("Different at index: " + i + " | Server: " + Test.server[i] + " || Client: " + Test.client[i]);
-                }
 
                 T2SClientMessage message = (T2SClientMessage)ByteArrayToObject(buffer);
                 //Perform logic
-                //If this is the first connection, we're not going to display anything new in the chat
-                if (message.FirstConnect)
+                //In order to do anything, the client must first be connected
+                if (message.Connected)
                 {
-                    ConnectedUsers.Add(new T2SUser()
+                    //If this is the first connection, we're not going to display anything new in the chat
+                    if (message.FirstConnect)
                     {
-                        MacAddr = message.MacAddr,
-                        Username = message.Username,
-                        ProfilePicture = message.ProfilePicture
-                    });
-                    ListView_ConnectedUsers.Dispatcher.Invoke(new AppendListViewConnectedUsersSeparateThreadCallback(this.AppendListViewConnecteduseresSeparateThread), new object[] { message });
+                        ConnectedUsers.Add(new T2SUser()
+                        {
+                            MacAddr = message.MacAddr,
+                            Username = message.Username,
+                            ProfilePicture = message.ProfilePicture
+                        });
+                        ListView_ConnectedUsers.Dispatcher.Invoke(new AppendListViewConnectedUsersSeparateThreadCallback(this.AppendListViewConnecteduseresSeparateThread), new object[] { message });
+                    }
+                    else
+                    {
+                        if (message.UpdateProfile)
+                        {
+                            bool found = false;
+                            //Modify user if macaddr exists. If not, add
+                            foreach (T2SUser user in ConnectedUsers)
+                            {
+                                if (user.MacAddr == message.MacAddr)
+                                {
+                                    //exists. So update the user
+                                    user.ProfilePicture = (message.ProfilePicture == null) ? user.ProfilePicture : message.ProfilePicture;
+                                    user.Username = message.Username; //Should never be null
+                                    found = true;
+                                }
+                            }
+                            //Not found, therefore add the user to ConnectedUser list and thingy
+                            if (!found)
+                            {
+                                ConnectedUsers.Add(new T2SUser()
+                                {
+                                    MacAddr = message.MacAddr,
+                                    Username = message.Username,
+                                    ProfilePicture = message.ProfilePicture
+                                });
+                            }
+                        }
+                        //Append to visual and do TTS
+                        speech.SpeakAsync(text);
+                        ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendChatBoxListViewSeparateThread), new object[] { message });
+                    }
                 }
                 else
                 {
-                    if (message.UpdateProfile)
-                    {
-                        bool found = false;
-                        //Modify user if macaddr exists. If not, add
-                        foreach (T2SUser user in ConnectedUsers)
-                        {
-                            if (user.MacAddr == message.MacAddr)
-                            {
-                                //exists. So update the user
-                                user.ProfilePicture = (message.ProfilePicture == null) ? user.ProfilePicture : message.ProfilePicture;
-                                user.Username = message.Username; //Should never be null
-                                found = true;
-                            }
-                        }
-                        //Not found, therefore add the user to ConnectedUser list and thingy
-                        if (!found)
-                        {
-                            ConnectedUsers.Add(new T2SUser()
-                            {
-                                MacAddr = message.MacAddr,
-                                Username = message.Username,
-                                ProfilePicture = message.ProfilePicture
-                            });
-                        }
-                    }
-                    //Append to visual and do TTS
-                    speech.SpeakAsync(text);
-                    ChatBox.Dispatcher.Invoke(new AppendRTBSeparateThreadCallback(this.AppendChatBoxListViewSeparateThread), new object[] { message });
+                    T2SUser user = ConnectedUsers.Find(x => x.MacAddr == message.MacAddr);
+                    if (user != null)
+                        ConnectedUsers.Remove(user);
+                    ListView_ConnectedUsers.Dispatcher.Invoke(new RemoveListViewConnectedUsersSeparateThreadCallback(this.RemoveListViewConnecteduseresSeparateThread), new object[] { message });
                 }
             }
         }
@@ -430,8 +472,24 @@ namespace T2SOverlay
             ListView_ConnectedUsers.Items.Add(new ConnectedUsersTemplateClass
             {
                 ProfilePicture = BitmapToImageSource(GetBitmapFromBytes(message.ProfilePicture)),
-                Username = message.Username
+                Username = message.Username,
+                MacAddr = message.MacAddr
             });
+        }
+
+        public delegate void RemoveListViewConnectedUsersSeparateThreadCallback(T2SClientMessage message);
+        public void RemoveListViewConnecteduseresSeparateThread(T2SClientMessage message)
+        {
+            int index = 0;
+            foreach (ConnectedUsersTemplateClass user in ListView_ConnectedUsers.Items)
+            {
+                if (user.MacAddr == message.MacAddr)
+                    break;
+                else
+                    index++;
+            }
+
+            ListView_ConnectedUsers.Items.RemoveAt(index);
         }
 
         // Convert an object to a byte array
@@ -465,7 +523,7 @@ namespace T2SOverlay
         private Bitmap GetBitmapFromBytes(byte[] bitmapPicture)
         {
             MemoryStream streamBitmap = new MemoryStream(bitmapPicture);
-            return (new Bitmap((Bitmap)Image.FromStream(streamBitmap)));
+            return (new Bitmap((Bitmap)System.Drawing.Image.FromStream(streamBitmap)));
         }
 
         /// <summary>
@@ -502,7 +560,7 @@ namespace T2SOverlay
         private bool disabledHotKeys = false;
         private void Keyboard_KeyPressed(object sender, KeyPressedEventArgs e)
         {
-            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
+            if (e.Key.Equals(hotkeyDisplay) && !textboxOpened && ClientSocket != null && ClientSocket.Connected) //Must be connected, and not already open in order to open a new textbox
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -573,6 +631,7 @@ namespace T2SOverlay
         {
             public BitmapImage ProfilePicture { get; set; }
             public string Username { get; set; }
+            public string MacAddr { get; set; }
         }
         #endregion
     }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:T2SOverlay"
         mc:Ignorable="d"
-        Title="T2S Client" Height="350" Width="525" ResizeMode="CanMinimize" >
+        Title="T2S Client" Height="350" Width="525" ResizeMode="CanMinimize" Closed="Window_Closed">
     <Grid>
         <DockPanel Background="Black">
             <Menu DockPanel.Dock="Top" Background="#FF181818">
@@ -35,6 +35,7 @@
                                 </Ellipse.Fill>
                             </Ellipse>
                             <TextBlock Foreground="White" TextWrapping="WrapWithOverflow" Text="{Binding Username}" Padding="5" Width="95" />
+                            <Label Content="{Binding MacAddr}" Width="0" Height="0" />
                         </WrapPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>

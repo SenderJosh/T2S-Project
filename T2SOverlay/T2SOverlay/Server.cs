@@ -15,7 +15,7 @@ namespace T2SOverlay
     public class Server
     {
 
-        private static readonly Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        private static Socket serverSocket;
         private static readonly List<SocketPair> clientSockets = new List<SocketPair>();
         private const int BUFFER_SIZE = 33;
         private const int PORT = 100;
@@ -23,6 +23,7 @@ namespace T2SOverlay
 
         public static void SetupServer()
         {
+            serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             Console.WriteLine("Setting up server...");
             serverSocket.Bind(new IPEndPoint(IPAddress.Any, PORT));
             serverSocket.Listen(0);
@@ -34,6 +35,8 @@ namespace T2SOverlay
         /// Close all connected client (we do not need to shutdown the server socket as its connections
         /// are already closed with the clients).
         /// </summary>
+        
+        //TODO send to all clients a disconnect notice
         public static void CloseAllSockets()
         {
             foreach (SocketPair sock in clientSockets)
@@ -41,6 +44,7 @@ namespace T2SOverlay
                 sock.socket.Shutdown(SocketShutdown.Both);
                 sock.socket.Close();
             }
+            clientSockets.Clear();
 
             serverSocket.Close();
         }
@@ -91,8 +95,71 @@ namespace T2SOverlay
                         break;
                     }
                 }
-                if(socketToRemove != null)
+                if (socketToRemove != null)
+                {
                     clientSockets.Remove(socketToRemove);
+                    T2SClientMessage otherClient = new T2SClientMessage()
+                    {
+                        Connected = false,
+                        MacAddr = socketToRemove.MacAddr
+                    };
+                    byte[] otherClientBuffer = MainWindow.ObjectToByteArray(otherClient);
+                    byte[] otherClientBufferMessage = new byte[otherClientBuffer.Length + 33]; //message to send; appends length of header
+                    string otherClientHeader = otherClientBuffer.Length.ToString();
+                    for (int i = otherClientHeader.Length; i < 32; i++)
+                    {
+                        otherClientHeader += " "; //Append empty spaces until header is max length (32)
+                    }
+                    otherClientHeader += "|";
+
+                    Array.Copy(Encoding.ASCII.GetBytes(otherClientHeader), otherClientBufferMessage, 33);
+                    Array.Copy(otherClientBuffer, 0, otherClientBufferMessage, 33, otherClientBuffer.Length);
+
+                    //Sendto everyone
+                    foreach (SocketPair s in clientSockets)
+                        s.socket.Send(otherClientBufferMessage);
+                }
+                return;
+            }
+
+            Console.WriteLine("Server bytes received: " + received);
+            if(received == 0)
+            {
+                Console.WriteLine("No bytes received; closing socket");
+                SocketPair socketToRemove = null;
+                foreach (SocketPair s in clientSockets)
+                {
+                    if (s.socket.Equals(current))
+                    {
+                        socketToRemove = s;
+                        break;
+                    }
+                }
+                if(socketToRemove.socket.Connected)
+                {
+                    socketToRemove.socket.Close();
+                }
+                clientSockets.Remove(socketToRemove);
+                T2SClientMessage otherClient = new T2SClientMessage()
+                {
+                    Connected = false,
+                    MacAddr = socketToRemove.MacAddr
+                };
+                byte[] otherClientBuffer = MainWindow.ObjectToByteArray(otherClient);
+                byte[] otherClientBufferMessage = new byte[otherClientBuffer.Length + 33]; //message to send; appends length of header
+                string otherClientHeader = otherClientBuffer.Length.ToString();
+                for (int i = otherClientHeader.Length; i < 32; i++)
+                {
+                    otherClientHeader += " "; //Append empty spaces until header is max length (32)
+                }
+                otherClientHeader += "|";
+
+                Array.Copy(Encoding.ASCII.GetBytes(otherClientHeader), otherClientBufferMessage, 33);
+                Array.Copy(otherClientBuffer, 0, otherClientBufferMessage, 33, otherClientBuffer.Length);
+
+                //Sendto everyone
+                foreach (SocketPair s in clientSockets)
+                    s.socket.Send(otherClientBufferMessage);
                 return;
             }
 
@@ -100,12 +167,22 @@ namespace T2SOverlay
             Array.Copy(buffer, recBuf, received);
             Console.WriteLine("Init: " + Encoding.ASCII.GetString(recBuf));
 
+            //Get until header is filled
+            while (received < 33)
+            {
+                byte[] tempBuffer = new byte[33 - received];
+                int appendableBytes = current.Receive(tempBuffer, 33 - received, SocketFlags.None);
+                Array.Copy(tempBuffer, 0, recBuf, received, tempBuffer.Length);
+                received += appendableBytes;
+            }
+
             int headerReceived;
             if(Int32.TryParse(Encoding.ASCII.GetString(recBuf).Split('|')[0], out headerReceived))
             {
                 Console.WriteLine("header received: " + headerReceived);
                 recBuf = new byte[headerReceived];
                 received = current.Receive(recBuf, headerReceived, SocketFlags.None);
+                //Get until object is filled
                 while (received < headerReceived)
                 {
                     byte[] tempBuffer = new byte[headerReceived - received];
@@ -128,7 +205,7 @@ namespace T2SOverlay
                 }
 
                 byte[] headerBytes = Encoding.ASCII.GetBytes(header + "|");
-                Test.server = recBuf;
+
                 T2SClientMessage clientMessage = (T2SClientMessage)MainWindow.ByteArrayToObject(recBuf);
                 temp = MainWindow.ObjectToByteArray(clientMessage);
                 recBuf = new byte[temp.Length + headerBytes.Length];
@@ -137,14 +214,6 @@ namespace T2SOverlay
                 Array.Copy(temp, 0, recBuf, 33, temp.Length);
 
                 byte[] message = recBuf; //Append message with the header
-
-                foreach(byte b in message)
-                {
-                    if(b == 0)
-                    {
-                        Console.WriteLine("ZEROS HERE");
-                    }
-                }
 
                 //Send to all connected sockets except self
                 foreach (SocketPair s in clientSockets)
@@ -164,9 +233,34 @@ namespace T2SOverlay
                         if (s.socket == current)
                         {
                             s.MacAddr = clientMessage.MacAddr;
+                            s.Username = clientMessage.Username;
+                            s.ProfilePicture = clientMessage.ProfilePicture;
+                        }
+                        else
+                        {
+                            T2SClientMessage otherClient = new T2SClientMessage()
+                            {
+                                FirstConnect = true,
+                                ProfilePicture = s.ProfilePicture,
+                                Username = s.Username,
+                                MacAddr = s.MacAddr
+                            };
+                            byte[] otherClientBuffer = MainWindow.ObjectToByteArray(otherClient);
+                            byte[] otherClientBufferMessage = new byte[otherClientBuffer.Length + 33]; //message to send; appends length of header
+                            string otherClientHeader = otherClientBuffer.Length.ToString();
+                            for (int i = otherClientHeader.Length; i < 32; i++)
+                            {
+                                otherClientHeader += " "; //Append empty spaces until header is max length (32)
+                            }
+                            otherClientHeader += "|";
+
+                            Array.Copy(Encoding.ASCII.GetBytes(otherClientHeader), otherClientBufferMessage, 33);
+                            Array.Copy(otherClientBuffer, 0, otherClientBufferMessage, 33, otherClientBuffer.Length);
+
+                            current.Send(otherClientBufferMessage);
                         }
                     }
-                    current.Send(message);
+                    current.Send(message); //Send the profile back to themself
                 }
             }
             else
@@ -180,6 +274,8 @@ namespace T2SOverlay
         {
             public string MacAddr { get; set; } = null;
             public Socket socket { get; set; } = null;
+            public byte[] ProfilePicture { get; set; } = null;
+            public string Username { get; set; } = null;
         }
     }
 }
