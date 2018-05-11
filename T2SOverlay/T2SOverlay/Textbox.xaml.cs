@@ -29,6 +29,11 @@ namespace T2SOverlay
             this.instance = instance;
         }
         
+        /// <summary>
+        /// If the user hits ESC, don't send anything and close the textbox
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Return || e.Key == Key.Enter)
@@ -44,11 +49,13 @@ namespace T2SOverlay
             }
         }
 
+        //Focus on the textbox
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             this.textbox.Focus();
         }
-
+        
+        //Reload hotkeys
         private void Window_Closed(object sender, EventArgs e)
         {
             MainWindow.LoadHotkeys(); //Load hotkeys back once closed

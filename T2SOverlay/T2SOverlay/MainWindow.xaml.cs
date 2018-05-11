@@ -128,6 +128,9 @@ namespace T2SOverlay
             LoadHotkeys();
         }
 
+        /// <summary>
+        /// Loads hotkeys
+        /// </summary>
         public static void LoadHotkeys()
         {
             //Register hotkeys
@@ -143,11 +146,18 @@ namespace T2SOverlay
             }
         }
 
+        /// <summary>
+        /// Unregisters hotkeys
+        /// </summary>
         public static void UnregisterHotkeys()
         {
             keyboard.UnregisterHotKeys();
         }
 
+        /// <summary>
+        /// When closing, make sure to unregister all hotkeys
+        /// </summary>
+        /// <param name="e"></param>
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             //Unregister hotkeys and save current ones in settings
@@ -260,6 +270,10 @@ namespace T2SOverlay
 
         #region Client socket connection to remote
 
+        /// <summary>
+        /// On disconnect, if we are server host, also close all server sockets
+        /// Clear all users as well as any other information
+        /// </summary>
         private void Disconnect()
         {
             if(ClientSocket.Connected)
@@ -277,6 +291,11 @@ namespace T2SOverlay
             ChatBox.Dispatcher.Invoke(new ChatBoxClearSeparateThreadCallback(this.ChatBoxClearSeparateThread), new object[] { });
         }
 
+        /// <summary>
+        /// Once the window IS closed, save all settings
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Window_Closed(object sender, EventArgs e)
         {
             //Save keys
@@ -296,6 +315,10 @@ namespace T2SOverlay
             File.WriteAllText(@Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\Local\\T2S Gaming\\profile.json", json);
         }
 
+        /// <summary>
+        /// Connect to the server in another thread
+        /// </summary>
+        /// <returns></returns>
         private async Task<bool> Connect()
         {
             ClientSocket = new Socket
@@ -324,6 +347,9 @@ namespace T2SOverlay
             return success;
         }
 
+        /// <summary>
+        /// Begin to take responses
+        /// </summary>
         private void MakeRequests()
         {
             Console.WriteLine("Now making requests to receive responses");
@@ -498,6 +524,11 @@ namespace T2SOverlay
             }
         }
 
+        /// <summary>
+        /// Check if the socket is connected
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <returns></returns>
         public bool IsConnected(Socket socket)
         {
             try
@@ -509,6 +540,9 @@ namespace T2SOverlay
 
         #endregion
 
+        /// <summary>
+        /// Delegates listed here are to update the main UI thread from another thread
+        /// </summary>
         #region Update Delegates
 
         //Only really called when disconnected
@@ -701,7 +735,10 @@ namespace T2SOverlay
         ////////////////////////////////////////////////////////////////////////////////
 
         #endregion
-
+        
+        /// <summary>
+        /// Templates used to update main UI
+        /// </summary>
         #region MessageTemplateClass
         class MessageTemplate
         {

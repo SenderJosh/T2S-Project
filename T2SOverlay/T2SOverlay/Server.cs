@@ -52,6 +52,10 @@ namespace T2SOverlay
             serverSocket.Close();
         }
 
+        /// <summary>
+        /// Server callback function for connect
+        /// </summary>
+        /// <param name="AR"></param>
         private static void AcceptCallback(IAsyncResult AR)
         {
             Socket sock;
@@ -75,6 +79,11 @@ namespace T2SOverlay
             serverSocket.BeginAccept(AcceptCallback, null);
         }
 
+        /// <summary>
+        /// Message callback function
+        /// Send user data back based on first connect or message
+        /// </summary>
+        /// <param name="AR"></param>
         private static void ReceiveCallback(IAsyncResult AR)
         {
             Socket current = (Socket)AR.AsyncState;
@@ -287,6 +296,11 @@ namespace T2SOverlay
             current.BeginReceive(buffer, 0, BUFFER_SIZE, SocketFlags.None, ReceiveCallback, current);
         }
 
+        /// <summary>
+        /// Check if socket is connected
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <returns></returns>
         public bool IsConnected(Socket socket)
         {
             try
@@ -296,6 +310,9 @@ namespace T2SOverlay
             catch (SocketException) { return false; }
         }
 
+        /// <summary>
+        /// Used to audit the connected users
+        /// </summary>
         class SocketPair
         {
             public string MacAddr { get; set; } = null;

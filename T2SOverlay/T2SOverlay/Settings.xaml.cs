@@ -40,6 +40,11 @@ namespace T2SOverlay
             HotkeyDisableHotkey.Content = this.hotkeyDisableHotkeys.ToString();
         }
 
+        /// <summary>
+        /// Handle UI and new hotkeys 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             Keys key = (Keys)KeyInterop.VirtualKeyFromKey(e.Key);
@@ -86,6 +91,11 @@ namespace T2SOverlay
             }
         }
 
+        /// <summary>
+        /// For the following methods, check what UI to update.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void HotkeyDisableHotkey_Click(object sender, RoutedEventArgs e)
         {
             listen = true;

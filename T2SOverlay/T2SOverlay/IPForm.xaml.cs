@@ -25,6 +25,11 @@ namespace T2SOverlay
             InitializeComponent();
         }
 
+        /// <summary>
+        /// When the user submits the inputted IP, check to see if it's valid. If it's empty, then use Loopback (good for testing literal localhost)
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(IPAddress.Text))
